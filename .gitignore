@@ -1,0 +1,28 @@
+# ── Laravel ──────────────────────────
+xamio-backend/vendor/
+xamio-backend/.env
+xamio-backend/.env.backup
+xamio-backend/storage/*.key
+xamio-backend/storage/logs/*
+xamio-backend/bootstrap/cache/*
+xamio-backend/.phpunit.result.cache
+
+# ── React ─────────────────────────────
+xamio-refactored/node_modules/
+xamio-refactored/build/
+xamio-refactored/.env
+xamio-refactored/.env.local
+xamio-refactored/.env.production
+
+# ── Fichiers sensibles racine ──────────
+xamio_db.sql
+Capture d'écran*.png
+*.png
+*.sql
+
+# ── Général ───────────────────────────
+.DS_Store
+Thumbs.db
+npm-debug.log
+yarn-error.log
+*.log
