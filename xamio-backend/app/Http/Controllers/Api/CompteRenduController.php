@@ -146,7 +146,7 @@ class CompteRenduController extends Controller
                     'cr_id'           => $cr->cr_id,
                     'action_texte'    => $task['title'],
                     'action_echeance' => $task['due'] ?? null,
-                    'action_statut'   => 'todo',
+                    'action_statut'   => 'a_faire',   // ✅ CORRIGÉ
                     'user_id'         => $task['user_id'] ?? null,
                 ]);
 

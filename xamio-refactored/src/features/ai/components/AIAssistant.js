@@ -6,12 +6,7 @@ import { useSidebar } from '../../../context/SidebarContext';
 
 /* ── Config ────────────────────────────────────────────────────────────── */
 
-// URL de base de l'API Laravel backend
-// En prod : variable d'env Vite → import.meta.env.VITE_API_URL
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
-
-// Récupérer le token Sanctum depuis localStorage (clé standard Laravel)
-// Adapte cette clé selon ton système d'auth
 const getAuthToken = () => localStorage.getItem('sanctum_token') ?? '';
 
 /* ── Context per page ──────────────────────────────────────────────────── */
@@ -116,31 +111,24 @@ function SourceCard({ source, index }) {
       onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {/* Index badge */}
         <span style={{
           width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
           background: 'var(--color-warning)', color: 'var(--color-background)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 9, fontWeight: 700,
         }}>{index + 1}</span>
-
-        {/* Doc name */}
         <span style={{
           flex: 1, fontSize: 11, fontWeight: 500,
           color: 'var(--color-text-secondary)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{source.doc_nom}</span>
-
-        {/* Similarity */}
         <span style={{ fontSize: 10, color: 'var(--color-warning)', fontWeight: 600, fontFamily: 'var(--mono)', flexShrink: 0 }}>
           {source.similarite}
         </span>
-
         <span style={{ fontSize: 9, color: 'var(--color-text-muted)', flexShrink: 0 }}>
           {expanded ? '▲' : '▼'}
         </span>
       </div>
-
       {expanded && (
         <p style={{ margin: '7px 0 0 22px', fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.55 }}>
           {source.extrait}
@@ -153,7 +141,6 @@ function SourceCard({ source, index }) {
 /* ── RAG message bubble ────────────────────────────────────────────────── */
 function RagBubble({ msg }) {
   const isUser = msg.role === 'user';
-
   if (isUser) {
     return (
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
@@ -163,19 +150,15 @@ function RagBubble({ msg }) {
           color: 'var(--color-background)',
           borderRadius: '12px 12px 3px 12px',
           padding: '9px 12px',
-          fontSize: 12,
-          lineHeight: 1.6,
-          fontFamily: 'var(--font-sans)',
+          fontSize: 12, lineHeight: 1.6, fontFamily: 'var(--font-sans)',
         }}>
           {msg.content}
         </div>
       </div>
     );
   }
-
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'flex-start' }}>
-      {/* Avatar */}
       <div style={{
         width: 22, height: 22, borderRadius: 6, background: 'var(--color-warning)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2,
@@ -187,41 +170,26 @@ function RagBubble({ msg }) {
           <polygon points="144,144 116,144 72,72 100,72" fill="#FF6A00" opacity=".8"/>
         </svg>
       </div>
-
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Response text */}
         <div style={{
           background: 'var(--color-background-tertiary)',
           border: '1px solid var(--color-border)',
           borderRadius: '3px 12px 12px 12px',
-          padding: '9px 12px',
-          fontSize: 12,
-          lineHeight: 1.6,
-          fontFamily: 'var(--font-sans)',
-          color: 'var(--color-text-primary)',
+          padding: '9px 12px', fontSize: 12, lineHeight: 1.6,
+          fontFamily: 'var(--font-sans)', color: 'var(--color-text-primary)',
         }}>
           <Md text={msg.content} />
         </div>
-
-        {/* Sources */}
         {msg.sources && msg.sources.length > 0 && (
           <div style={{ marginTop: 8 }}>
-            <p style={{
-              fontSize: 10, color: 'var(--color-text-muted)',
-              margin: '0 0 5px 2px', letterSpacing: '.05em', fontWeight: 500,
-              fontFamily: 'var(--font-sans)',
-            }}>
+            <p style={{ fontSize: 10, color: 'var(--color-text-muted)', margin: '0 0 5px 2px', letterSpacing: '.05em', fontWeight: 500, fontFamily: 'var(--font-sans)' }}>
               SOURCES · {msg.sources.length} document{msg.sources.length > 1 ? 's' : ''}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {msg.sources.map((src, i) => (
-                <SourceCard key={i} source={src} index={i} />
-              ))}
+              {msg.sources.map((src, i) => <SourceCard key={i} source={src} index={i} />)}
             </div>
           </div>
         )}
-
-        {/* Token count */}
         {msg.tokens != null && (
           <p style={{ margin: '5px 0 0 2px', fontSize: 10, color: 'var(--color-text-muted)', fontFamily: 'var(--mono)' }}>
             {msg.tokens.toLocaleString('fr-FR')} tokens · Gemini Flash
@@ -243,11 +211,8 @@ const RAG_SUGGESTIONS = [
 function RagEmptyState({ onSuggest, stats }) {
   return (
     <div>
-      {/* Stats mini */}
       {stats && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 16,
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 16 }}>
           {[
             { label: 'Docs indexés', value: stats.docs_indexes ?? '—' },
             { label: 'Chunks',       value: stats.total_chunks?.toLocaleString('fr-FR') ?? '—' },
@@ -256,9 +221,7 @@ function RagEmptyState({ onSuggest, stats }) {
             <div key={label} style={{
               background: 'var(--color-background-elevated)',
               border: '1px solid var(--color-border)',
-              borderRadius: 8,
-              padding: '8px 10px',
-              textAlign: 'center',
+              borderRadius: 8, padding: '8px 10px', textAlign: 'center',
             }}>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--color-warning)' }}>{value}</p>
               <p style={{ margin: 0, fontSize: 10, color: 'var(--color-text-muted)' }}>{label}</p>
@@ -266,11 +229,9 @@ function RagEmptyState({ onSuggest, stats }) {
           ))}
         </div>
       )}
-
       <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 12, lineHeight: 1.65, fontFamily: 'var(--font-sans)' }}>
         Posez une question sur vos documents indexés.
       </p>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {RAG_SUGGESTIONS.map(s => (
           <button key={s} onClick={() => onSuggest(s)}
@@ -278,17 +239,13 @@ function RagEmptyState({ onSuggest, stats }) {
               background: 'var(--color-background-tertiary)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-medium)',
-              padding: '8px 12px',
-              cursor: 'pointer', fontSize: 12,
-              color: 'var(--color-text-secondary)',
-              textAlign: 'left', fontFamily: 'var(--font-sans)',
-              transition: 'all var(--transition-normal)',
+              padding: '8px 12px', cursor: 'pointer', fontSize: 12,
+              color: 'var(--color-text-secondary)', textAlign: 'left',
+              fontFamily: 'var(--font-sans)', transition: 'all var(--transition-normal)',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-warning-border)'; e.currentTarget.style.color = 'var(--color-warning)'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
-          >
-            {s}
-          </button>
+          >{s}</button>
         ))}
       </div>
     </div>
@@ -309,9 +266,7 @@ function ModePill({ mode, onChange }) {
           cursor: 'pointer', fontSize: 11, fontFamily: 'var(--font-sans)',
           color: mode === id ? 'var(--color-warning)' : 'var(--color-text-muted)',
           transition: 'all var(--transition-normal)', whiteSpace: 'nowrap',
-        }}>
-          {label}
-        </button>
+        }}>{label}</button>
       ))}
     </div>
   );
@@ -329,7 +284,7 @@ const QUICK = [
    Main component
 ══════════════════════════════════════════════════════════════════════════ */
 export default function AIAssistant() {
-  const location   = useLocation();
+  const location     = useLocation();
   const { isMobile } = useSidebar();
 
   // Panel state
@@ -361,9 +316,7 @@ export default function AIAssistant() {
 
   // Load RAG stats on panel open (mode rag) or mode switch
   useEffect(() => {
-    if (open && mode === 'rag' && !ragStats) {
-      fetchRagStats();
-    }
+    if (open && mode === 'rag' && !ragStats) fetchRagStats();
   }, [open, mode]);
 
   /* ── Auth header ── */
@@ -379,16 +332,10 @@ export default function AIAssistant() {
       const res  = await fetch(`${API_BASE}/rag/stats`, { headers: authHeaders() });
       const data = await res.json();
       if (data?.data) setRagStats(data.data);
-    } catch (_) {
-      // silently fail — stats are non-critical
-    }
+    } catch (_) {}
   }, [authHeaders]);
 
-  /* ────────────────────────────────────────────────────────────────────────
-     CHAT SEND (appel direct Claude via Anthropic API)
-     ⚠  En production : remplacer par un appel à ton backend Laravel
-         POST /api/ai/chat  qui détient la clé API côté serveur.
-  ──────────────────────────────────────────────────────────────────────── */
+  /* ── Chat send ── */
   const sendChat = useCallback(async (txt) => {
     const text = (txt || chatInput).trim();
     if (!text || chatLoading) return;
@@ -421,7 +368,6 @@ export default function AIAssistant() {
       const data  = await res.json();
       const reply = data.content?.map(b => b.text || '').join('') || '';
       setChatMessages(prev => [...prev, { role: 'assistant', content: reply }]);
-
     } catch (e) {
       setChatError(e.message || 'Erreur de connexion.');
     } finally {
@@ -429,9 +375,7 @@ export default function AIAssistant() {
     }
   }, [chatInput, chatMessages, chatLoading, location.pathname]);
 
-  /* ────────────────────────────────────────────────────────────────────────
-     RAG SEND (appel backend Laravel → RagService → Gemini)
-  ──────────────────────────────────────────────────────────────────────── */
+  /* ── RAG send ── */
   const sendRag = useCallback(async (txt) => {
     const question = (txt || ragInput).trim();
     if (!question || ragLoading) return;
@@ -451,25 +395,18 @@ export default function AIAssistant() {
       const data = await res.json();
 
       if (!res.ok) {
-        // 402 = module IA non inclus dans le plan
-        if (res.status === 402) {
-          throw new Error("Le module Documents IA n'est pas inclus dans votre plan. Passez au plan Pro.");
-        }
+        if (res.status === 402) throw new Error("Le module Documents IA n'est pas inclus dans votre plan. Passez au plan Pro.");
         throw new Error(data?.message || `Erreur ${res.status}`);
       }
 
-      const assistantMsg = {
+      setRagMessages(prev => [...prev, {
         role:    'assistant',
         content: data.data.reponse,
-        sources: data.data.sources     || [],
+        sources: data.data.sources       || [],
         tokens:  data.data.tokens_utilises ?? null,
-      };
+      }]);
 
-      setRagMessages(prev => [...prev, assistantMsg]);
-
-      // Mettre à jour les stats après chaque question
       fetchRagStats();
-
     } catch (e) {
       setRagError(e.message || 'Erreur de connexion au service RAG.');
     } finally {
@@ -477,29 +414,27 @@ export default function AIAssistant() {
     }
   }, [ragInput, ragMessages, ragLoading, authHeaders, fetchRagStats]);
 
-  /* ── Keyboard shortcuts ── */
-  const onChatKey = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } };
-  const onRagKey  = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendRag(); } };
-
-  /* ── Textarea auto-resize ── */
-  const autoResize = (e) => {
-    e.target.style.height = 'auto';
-    e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px';
-  };
+  /* ── Keyboard / resize helpers ── */
+  const onChatKey  = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } };
+  const onRagKey   = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendRag(); } };
+  const autoResize = (e) => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px'; };
 
   /* ── Current state helpers ── */
-  const isRag     = mode === 'rag';
-  const messages  = isRag ? ragMessages  : chatMessages;
-  const loading   = isRag ? ragLoading   : chatLoading;
-  const error     = isRag ? ragError     : chatError;
-  const inputVal  = isRag ? ragInput     : chatInput;
-  const setInput  = isRag ? setRagInput  : setChatInput;
-  const sendFn    = isRag ? sendRag      : sendChat;
-  const onKey     = isRag ? onRagKey     : onChatKey;
+  const isRag    = mode === 'rag';
+  const messages = isRag ? ragMessages  : chatMessages;
+  const loading  = isRag ? ragLoading   : chatLoading;
+  const error    = isRag ? ragError     : chatError;
+  const inputVal = isRag ? ragInput     : chatInput;
+  const setInput = isRag ? setRagInput  : setChatInput;
+  const sendFn   = isRag ? sendRag      : sendChat;
+  const onKey    = isRag ? onRagKey     : onChatKey;
 
-  /* ────────────────────────────────────────────────────────────────────────
-     RENDER
-  ──────────────────────────────────────────────────────────────────────── */
+  // ── Ne pas afficher l'assistant sur la page de connexion ─────────────
+  // Ce guard est placé APRÈS tous les hooks (règle React : pas de hook conditionnel)
+  const LOGIN_ROUTES = ['/login', '/connexion', '/auth/login', '/auth'];
+  if (LOGIN_ROUTES.includes(location.pathname)) return null;
+
+  /* ── Render ── */
   return (
     <>
       {/* ── FAB ── */}
@@ -517,8 +452,7 @@ export default function AIAssistant() {
           boxShadow: open ? 'none' : '0 4px 20px rgba(200,146,42,0.35)',
           cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000,
-          transition: 'all 0.22s ease',
+          zIndex: 1000, transition: 'all 0.22s ease',
         }}
       >
         {open
@@ -552,7 +486,6 @@ export default function AIAssistant() {
             background: 'var(--color-background-tertiary)',
             flexShrink: 0, gap: 10,
           }}>
-            {/* Logo + title */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               <XamioLogo variant="mark" height={28} />
               <div>
@@ -567,13 +500,8 @@ export default function AIAssistant() {
                 </div>
               </div>
             </div>
-
-            {/* Right controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {/* Mode toggle — visible only on chat tab */}
               {tab === 'chat' && <ModePill mode={mode} onChange={setMode} />}
-
-              {/* Tab pills */}
               <div style={{ display: 'flex', background: 'var(--color-background-elevated)', borderRadius: 8, padding: 2, gap: 1 }}>
                 {[['chat', '💬'], ['settings', '⚙']].map(([t, ic]) => (
                   <button key={t} onClick={() => setTab(t)} style={{
@@ -587,15 +515,10 @@ export default function AIAssistant() {
             </div>
           </div>
 
-          {/* ══════════════════════════════════════════════════════════════
-              TAB: CHAT
-          ══════════════════════════════════════════════════════════════ */}
+          {/* ── Tab: Chat ── */}
           {tab === 'chat' && (
             <>
-              {/* Messages area */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '14px' }}>
-
-                {/* ── Empty state ── */}
                 {messages.length === 0 && (
                   isRag
                     ? <RagEmptyState onSuggest={txt => sendRag(txt)} stats={ragStats} />
@@ -617,7 +540,6 @@ export default function AIAssistant() {
                     )
                 )}
 
-                {/* ── Messages ── */}
                 {messages.map((m, i) => (
                   isRag
                     ? <RagBubble key={i} msg={m} />
@@ -646,7 +568,6 @@ export default function AIAssistant() {
                     )
                 ))}
 
-                {/* ── Typing indicator ── */}
                 {loading && (
                   <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                     <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--color-warning)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -663,7 +584,6 @@ export default function AIAssistant() {
                   </div>
                 )}
 
-                {/* ── Error ── */}
                 {error && (
                   <div style={{ background: 'var(--color-danger-bg)', border: '1px solid var(--color-danger-border)', borderRadius: 8, padding: '9px 12px', fontSize: 12, color: 'var(--color-danger)', marginBottom: 8 }}>
                     ⚠ {error}
@@ -686,14 +606,11 @@ export default function AIAssistant() {
                     Effacer la conversation
                   </button>
                 )}
-
-                {/* RAG disclaimer */}
                 {isRag && messages.length === 0 && (
                   <p style={{ fontSize: 10, color: 'var(--color-text-muted)', margin: '0 0 7px', fontFamily: 'var(--font-sans)' }}>
                     Les réponses s'appuient uniquement sur vos documents indexés.
                   </p>
                 )}
-
                 <div style={{ display: 'flex', gap: 7, alignItems: 'flex-end' }}>
                   <textarea
                     ref={inputRef}
@@ -738,13 +655,10 @@ export default function AIAssistant() {
             </>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════
-              TAB: SETTINGS
-          ══════════════════════════════════════════════════════════════ */}
+          {/* ── Tab: Settings ── */}
           {tab === 'settings' && (
             <div style={{ flex: 1, overflowY: 'auto', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 22 }}>
 
-              {/* Apparence */}
               <div>
                 <p style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '.1em', marginBottom: 12, fontWeight: 500, fontFamily: 'var(--font-sans)' }}>APPARENCE</p>
                 <div style={{ background: 'var(--color-background-tertiary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-medium)', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -756,7 +670,6 @@ export default function AIAssistant() {
                 </div>
               </div>
 
-              {/* Mode Chat */}
               <div>
                 <p style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '.1em', marginBottom: 12, fontWeight: 500, fontFamily: 'var(--font-sans)' }}>MODE CHAT · CLAUDE SONNET</p>
                 <div style={{ background: 'var(--color-background-tertiary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-medium)', padding: '14px 16px' }}>
@@ -769,31 +682,28 @@ export default function AIAssistant() {
                 </div>
               </div>
 
-              {/* Mode RAG */}
               <div>
                 <p style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '.1em', marginBottom: 12, fontWeight: 500, fontFamily: 'var(--font-sans)' }}>MODE DOCUMENTS · RAG</p>
                 <div style={{ background: 'var(--color-background-tertiary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-medium)', padding: '14px 16px' }}>
                   {[
-                    ['Embedding',  'text-embedding-004'],
-                    ['Génération', 'gemini-1.5-flash'],
-                    ['Coût',       'Gratuit (free tier)'],
-                    ['Sources',    'Top-5 par similarité cosinus'],
+                    ['Embedding',    'text-embedding-004'],
+                    ['Génération',   'gemini-1.5-flash'],
+                    ['Coût',         'Gratuit (free tier)'],
+                    ['Sources',      'Top-5 par similarité cosinus'],
                     ['Docs indexés', ragStats ? `${ragStats.docs_indexes}` : '—'],
-                    ['Chunks',     ragStats ? ragStats.total_chunks?.toLocaleString('fr-FR') : '—'],
+                    ['Chunks',       ragStats ? ragStats.total_chunks?.toLocaleString('fr-FR') : '—'],
                   ].map(([k, v]) => (
                     <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 9, fontSize: 12 }}>
                       <span style={{ color: 'var(--color-text-muted)' }}>{k}</span>
                       <span style={{ fontWeight: 500, color: 'var(--color-warning)', fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</span>
                     </div>
                   ))}
-                  {/* Refresh stats */}
                   <button onClick={fetchRagStats} style={{ fontSize: 10, color: 'var(--color-text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-sans)', marginTop: 4 }}>
                     ↻ Actualiser les stats
                   </button>
                 </div>
               </div>
 
-              {/* Suggestions */}
               <div>
                 <p style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '.1em', marginBottom: 12, fontWeight: 500, fontFamily: 'var(--font-sans)' }}>SUGGESTIONS RAPIDES</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

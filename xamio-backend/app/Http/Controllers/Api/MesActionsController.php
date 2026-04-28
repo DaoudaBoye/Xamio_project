@@ -4,88 +4,51 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Action;
+use App\Models\Scopes\ActionVisibilityScope;
+use App\Services\UserRoleService;
 use Illuminate\Http\Request;
 
 class MesActionsController extends Controller
 {
+    public function __construct(
+        private UserRoleService $roles,
+        private ActionVisibilityScope $visibilityScope,
+    ) {}
+
     public function index(Request $request)
     {
         $user  = $request->user();
-        $orgId = $user->appartenances()->where('app_statut', 'actif')->value('org_id');
+        $query = Action::with(['user', 'compteRendu.reunion']);
 
-        $isAdmin = $user->appartenances()
-            ->where('org_id', $orgId)
-            ->where('app_statut', 'actif')
-            ->whereHas('role', fn ($q) => $q->whereIn('role_nom', ['admin', 'super_admin']))
-            ->exists();
+        $this->visibilityScope->apply($query, $user);
 
-        $isDirecteur = $user->appartenances()
-            ->where('org_id', $orgId)
-            ->where('app_statut', 'actif')
-            ->whereHas('role', fn ($q) => $q->whereIn('role_nom', ['directeur']))
-            ->exists();
-
-        $isManager = $user->appartenances()
-            ->where('org_id', $orgId)
-            ->where('app_statut', 'actif')
-            ->whereHas('role', fn ($q) => $q->whereIn('role_nom', ['manager']))
-            ->exists();
-
-        $query = Action::with(['user', 'compteRendu.reunion'])
-            ->whereHas('compteRendu.reunion', fn ($q) => $q->where('org_id', $orgId));
-
-        if ($isAdmin || $isDirecteur) {
-            // Voit toutes les actions de l'org
-        } elseif ($isManager) {
-            // Voit les actions des réunions qu'il a créées
-            $query->whereHas('compteRendu.reunion', fn ($q) => $q
-                ->where('org_id', $orgId)
-                ->where('user_id', $user->id) // ← réunions créées par lui
-            );
-        } else {
-            // Employé / Assistant : uniquement ses propres actions
-            $query->where('user_id', $user->id);
-        }
-
-        $actions = $query->orderByDesc('created_at')
+        $actions = $query
+            ->orderByDesc('created_at')
             ->get()
-            ->map(fn ($a) => [
-                'action_id'       => $a->action_id,
-                'action_texte'    => $a->action_texte,
-                'action_echeance' => $a->action_echeance?->format('Y-m-d'),
-                'action_statut'   => $a->action_statut,
-                'user_id'         => $a->user_id,
-                'assignee'        => $a->user
-                    ? trim($a->user->util_prenom . ' ' . $a->user->util_nom)
-                    : null,
-                'reunion'         => $a->compteRendu?->reunion?->reun_titre ?? null,
-            ]);
+            ->map(fn($a) => $a->toApiArray());
 
         return response()->json(['data' => $actions]);
     }
 
     public function updateStatut(Request $request, Action $action)
     {
+        $this->authorize('updateStatut', $action);
+
         $request->validate([
-            'action_statut' => 'required|in:todo,en_cours,fait',
+            'action_statut' => 'required|in:a_faire,en_cours,termine,annule',
         ]);
 
-        $user  = $request->user();
-        $orgId = $user->appartenances()->where('app_statut', 'actif')->value('org_id');
+        $user         = $request->user();
+        $orgId        = $this->roles->getOrgId($user);
+        $isPrivileged = $this->roles->isPrivileged($user, $orgId);
 
-        $isPrivileged = $user->appartenances()
-            ->where('org_id', $orgId)
-            ->where('app_statut', 'actif')
-            ->whereHas('role', fn ($q) => $q->whereIn('role_nom', ['admin', 'super_admin', 'manager', 'directeur']))
-            ->exists();
-
-        if (!$isPrivileged && $action->user_id !== $user->id) {
+        // annule réservé aux privilégiés
+        if (!$isPrivileged && $request->action_statut === 'annule') {
             return response()->json(['message' => 'Non autorisé.'], 403);
         }
 
-        // Bloquer le retour en arrière pour les non-admins
-        $order = ['todo' => 0, 'en_cours' => 1, 'fait' => 2];
-        if (!$isPrivileged && $order[$request->action_statut] < $order[$action->action_statut]) {
+        // Retour en arrière interdit aux non-privilégiés
+        if (!$isPrivileged && !$action->canTransitionTo($request->action_statut)) {
             return response()->json(['message' => 'Vous ne pouvez pas revenir en arrière.'], 403);
         }
 

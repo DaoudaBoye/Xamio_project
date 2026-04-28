@@ -53,6 +53,16 @@ class User extends Authenticatable
          ->withTimestamps();
     }
 
+    public function departements()
+    {
+        return $this->belongsToMany(
+            Departement::class,
+            'membre_departements',
+            'user_id',
+            'dept_id'
+        )->withPivot('membdept_date_ajout');
+    }
+
     public function userSessions()
     {
         return $this->hasMany(UserSession::class, 'user_id');

@@ -13,24 +13,37 @@ class Tache extends Model
         'tache_priorite',
         'tache_colonne',
         'tache_echeance',
-        'description',
         'org_id',
         'user_id',
-        'dept_id', // ← ajout
     ];
+
+    // Valeurs réelles de la migration
+    const COLONNES  = ['a_faire', 'en_cours', 'en_revision', 'termine'];
+    const PRIORITES = ['basse', 'normale', 'haute', 'urgente'];
 
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function departement()
-    {
-        return $this->belongsTo(Departement::class, 'dept_id', 'dept_id'); // ← ajout
-    }
-
     public function organisation()
     {
         return $this->belongsTo(Organisation::class, 'org_id', 'org_id');
+    }
+
+    public function toArray(): array
+    {
+        return [
+            'tache_id'       => $this->tache_id,
+            'tache_titre'    => $this->tache_titre,
+            'tache_echeance' => $this->tache_echeance,
+            'tache_priorite' => $this->tache_priorite,
+            'tache_colonne'  => $this->tache_colonne,
+            'user_id'        => $this->user_id,
+            'user'           => $this->user ? [
+                'util_prenom' => $this->user->util_prenom,
+                'util_nom'    => $this->user->util_nom,
+            ] : null,
+        ];
     }
 }

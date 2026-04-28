@@ -262,14 +262,31 @@ const CSS = `
   }
 `;
 
+// ✅ CORRIGÉ — valeurs alignées avec la migration
 const PRIORITIES = [
-  { val: 'high',   label: 'Haute',   color: 'red',  dot: '#E24B4A' },
-  { val: 'medium', label: 'Moyenne', color: 'gold', dot: '#BA7517' },
-  { val: 'low',    label: 'Basse',   color: 'blue', dot: '#378ADD' },
+  { val: 'urgente', label: 'Urgente', color: 'red',    dot: '#E24B4A' },
+  { val: 'haute',   label: 'Haute',   color: 'orange', dot: '#E8500A' },
+  { val: 'normale', label: 'Normale', color: 'gold',   dot: '#BA7517' },
+  { val: 'basse',   label: 'Basse',   color: 'blue',   dot: '#378ADD' },
 ];
 
 const COL_LABEL = { todo: 'À faire', inprogress: 'En cours', done: 'Terminé' };
 const COL_ORDER = { todo: 0, inprogress: 1, done: 2 };
+
+// ✅ Mapping statut backend → colonne frontend
+const STATUT_TO_COL = {
+  a_faire:   'todo',
+  en_cours:  'inprogress',
+  termine:   'done',
+  annule:    'todo', // les annulées restent visibles dans "À faire"
+};
+
+// ✅ Mapping colonne frontend → statut backend
+const COL_TO_STATUT = {
+  todo:       'a_faire',
+  inprogress: 'en_cours',
+  done:       'termine',
+};
 
 const ROLES_SUPERVISEUR = [
   'Super Admin', 'Admin Entreprise', 'super_admin', 'admin',
@@ -300,38 +317,35 @@ function getDueStatus(dueDateStr, isDone) {
   return               { status: 'on-track',  label: 'À jour',    days: diffDays };
 }
 
+// ✅ CORRIGÉ — tache_colonne (sans s) + priorités alignées migration
 function normalizeTache(t) {
   return {
-    id:          `tache_${t.tache_id ?? t.id}`,
-    title:       t.tache_titre ?? t.title ?? '',
-    assignee:    t.user ? `${t.user.util_prenom} ${t.user.util_nom}`.trim() : (t.assignee ?? ''),
-    user_id:     t.user_id != null ? Number(t.user_id) : null,
-    dept_id:     t.dept_id != null ? Number(t.dept_id) : null, // ← ajout
-    due:         t.tache_echeance ?? t.due ?? '',
-    priority:    t.tache_priorite ?? t.priority ?? 'medium',
-    tags:        t.tags ?? [],
-    source:      'tache',
-    colKey:      t.tache_colonnes ?? 'todo',
-    description: t.description ?? '',
+    id:       `tache_${t.tache_id ?? t.id}`,
+    title:    t.tache_titre ?? t.title ?? '',
+    assignee: t.user ? `${t.user.util_prenom} ${t.user.util_nom}`.trim() : (t.assignee ?? ''),
+    user_id:  t.user_id != null ? Number(t.user_id) : null,
+    due:      t.tache_echeance ?? t.due ?? '',
+    priority: t.tache_priorite ?? t.priority ?? 'normale',
+    tags:     t.tags ?? [],
+    source:   'tache',
+    colKey:   t.tache_colonne ?? 'a_faire', // ✅ corrigé : sans 's', valeur migration
   };
 }
 
+// ✅ CORRIGÉ — mapping statut backend → colonne kanban
 function normalizeAction(a) {
-  const colKey =
-    a.action_statut === 'fait'     ? 'done'       :
-    a.action_statut === 'en_cours' ? 'inprogress' :
-    'todo';
+  const colKey = STATUT_TO_COL[a.action_statut] ?? 'todo';
 
   return {
-    id:          `action_${a.action_id ?? a.id}`,
-    title:       a.action_texte ?? a.title ?? '',
-    assignee:    a.assignee ?? '',
-    user_id:     a.user_id != null ? Number(a.user_id) : null,
-    due:         a.action_echeance ?? a.due ?? '',
-    priority:    'medium',
-    tags:        ['CR'],
-    source:      'action',
-    reunion:     a.reunion ?? null,
+    id:       `action_${a.action_id ?? a.id}`,
+    title:    a.action_texte ?? a.title ?? '',
+    assignee: a.assignee ?? '',
+    user_id:  a.user_id != null ? Number(a.user_id) : null,
+    due:      a.action_echeance ?? a.due ?? '',
+    priority: 'normale', // ✅ corrigé : aligné migration
+    tags:     ['CR'],
+    source:   'action',
+    reunion:  a.reunion ?? null,
     colKey,
     description: a.reunion ? `Action issue de la réunion : ${a.reunion}` : '',
   };
@@ -370,24 +384,24 @@ export default function TasksPage() {
   const { addToast } = useNotif();
   const { user } = useAuth();
 
-  const raw          = user?.roleRaw || '';
+  const raw            = user?.roleRaw || '';
   const estSuperviseur = ROLES_SUPERVISEUR.includes(raw);
   const estAdminPur    = ROLES_ADMIN.includes(raw);
-  const estManager     = ROLES_MANAGER.includes(raw);     // ← ajout
-  const estDirecteur   = ROLES_DIRECTEUR.includes(raw);   // ← ajout
+  const estManager     = ROLES_MANAGER.includes(raw);
+  const estDirecteur   = ROLES_DIRECTEUR.includes(raw);
 
-  const [tasks,          setTasks]       = useState({ todo: [], inprogress: [], done: [] });
-  const [loading,        setLoading]     = useState(true);
-  const [view,           setView]        = useState('Kanban');
-  const [search,         setSearch]      = useState('');
+  const [tasks,          setTasks]          = useState({ todo: [], inprogress: [], done: [] });
+  const [loading,        setLoading]        = useState(true);
+  const [view,           setView]           = useState('Kanban');
+  const [search,         setSearch]         = useState('');
   const [priorityFilter, setPriorityFilter] = useState(null);
-  const [dragInfo,       setDragInfo]    = useState({ id: null, sCol: null });
-  const [overInfo,       setOverInfo]    = useState({ col: null, index: null });
-  const [draggingId,     setDraggingId]  = useState(null);
-  const [editingTask,    setEditingTask] = useState(null);
-  const [isModalOpen,    setIsModalOpen] = useState(false);
-  const [activeCol,      setActiveCol]   = useState('todo');
-  const [isMobile,       setIsMobile]    = useState(false);
+  const [dragInfo,       setDragInfo]       = useState({ id: null, sCol: null });
+  const [overInfo,       setOverInfo]       = useState({ col: null, index: null });
+  const [draggingId,     setDraggingId]     = useState(null);
+  const [editingTask,    setEditingTask]    = useState(null);
+  const [isModalOpen,    setIsModalOpen]    = useState(false);
+  const [activeCol,      setActiveCol]      = useState('todo');
+  const [isMobile,       setIsMobile]       = useState(false);
 
   const prevTasksRef = useRef(null);
 
@@ -436,14 +450,12 @@ export default function TasksPage() {
     const filterFn = (list) => (list || []).filter(t => {
       const matchSearch   = t.title.toLowerCase().includes(search.toLowerCase());
       const matchPriority = !priorityFilter || t.priority === priorityFilter;
-      // Le filtrage métier est fait côté backend
-      // Ici on filtre uniquement par search et priorité
       const canSee =
-        estAdminPur  ? true :   // admin → tout
-        estDirecteur ? true :   // directeur → tout (lecture seule)
-        estManager   ? true :   // manager → filtré par backend (dept)
-        estSuperviseur ? true : // assistant → filtré par backend
-        estAssigne(t);          // employé → uniquement ses tâches
+        estAdminPur    ? true :
+        estDirecteur   ? true :
+        estManager     ? true :
+        estSuperviseur ? true :
+        estAssigne(t);
       return matchSearch && matchPriority && canSee;
     });
     return {
@@ -453,11 +465,9 @@ export default function TasksPage() {
     };
   }, [tasks, search, priorityFilter, estAdminPur, estDirecteur, estManager, estSuperviseur, estAssigne]);
 
-  // ← Le manager peut déplacer les tâches de son département
-  // ← Le directeur ne peut pas déplacer (lecture seule)
   const peutDragguer = useCallback((task, colKey) => {
     if (!task) return false;
-    if (estDirecteur) return false; // ← lecture seule
+    if (estDirecteur) return false;
     if (task.source === 'action') {
       if (estAdminPur || estManager) return true;
       if (!user) return false;
@@ -472,18 +482,18 @@ export default function TasksPage() {
     const allTasks = [...tasks.todo, ...tasks.inprogress, ...tasks.done];
     const task = allTasks.find(t => t.id === taskId);
     if (!task) return false;
-    if (estDirecteur) return false; // ← lecture seule
+    if (estDirecteur) return false;
     if (estAdminPur) return true;
-    if (estManager) return true; // ← manager peut déplacer librement dans son dept
+    if (estManager) return true;
     if (!user) return false;
     if (Number(task.user_id) !== Number(user.id)) return false;
     return COL_ORDER[destCol] > COL_ORDER[sourceCol];
   }, [tasks, estAdminPur, estDirecteur, estManager, user]);
 
   const peutModifier = useCallback((task, colKey) => {
-    if (estDirecteur) return false; // ← lecture seule
+    if (estDirecteur) return false;
     if (estAdminPur) return true;
-    if (estManager) return true;   // ← peut modifier les tâches de son dept
+    if (estManager) return true;
     if (estSuperviseur) return true;
     if (!user) return false;
     return Number(task.user_id) === Number(user.id);
@@ -531,23 +541,24 @@ export default function TasksPage() {
       return newTasks;
     });
 
-    const token = localStorage.getItem('xamio_token');
+    const token    = localStorage.getItem('xamio_token');
     const isAction = taskId.startsWith('action_');
 
     if (isAction) {
       const numericId = taskId.replace('action_', '');
-      const newStatut = destCol === 'done' ? 'fait' : destCol === 'inprogress' ? 'en_cours' : 'todo';
+      // ✅ CORRIGÉ — valeurs alignées avec la migration
       fetch(`/api/actions/${numericId}/statut`, {
-        method: 'PATCH',
+        method:  'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action_statut: newStatut }),
+        body:    JSON.stringify({ action_statut: COL_TO_STATUT[destCol] }),
       }).catch(() => addToast('Erreur lors de la sauvegarde du déplacement.', 'error'));
     } else {
       const numericId = taskId.replace('tache_', '');
+      // ✅ CORRIGÉ — tache_colonne sans 's', valeurs migration
       fetch(`/api/taches/${numericId}/colonne`, {
-        method: 'PATCH',
+        method:  'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tache_colonnes: destCol }),
+        body:    JSON.stringify({ tache_colonne: destCol }),
       }).catch(() => addToast('Erreur lors de la sauvegarde du déplacement.', 'error'));
     }
 
@@ -578,7 +589,7 @@ export default function TasksPage() {
   const handleMoveCard = (task, currentCol, direction) => {
     const cols = ['todo', 'inprogress', 'done'];
     const currentIdx = cols.indexOf(currentCol);
-    const destIdx = currentIdx + direction;
+    const destIdx    = currentIdx + direction;
     if (destIdx < 0 || destIdx >= cols.length) return;
     const destCol = cols[destIdx];
 
@@ -600,23 +611,24 @@ export default function TasksPage() {
 
     setActiveCol(destCol);
 
-    const token = localStorage.getItem('xamio_token');
+    const token        = localStorage.getItem('xamio_token');
     const isActionTask = task.id.startsWith('action_');
 
     if (isActionTask) {
       const numericId = task.id.replace('action_', '');
-      const newStatut = destCol === 'done' ? 'fait' : destCol === 'inprogress' ? 'en_cours' : 'todo';
+      // ✅ CORRIGÉ
       fetch(`/api/actions/${numericId}/statut`, {
-        method: 'PATCH',
+        method:  'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action_statut: newStatut }),
+        body:    JSON.stringify({ action_statut: COL_TO_STATUT[destCol] }),
       }).catch(() => addToast('Erreur lors de la sauvegarde.', 'error'));
     } else {
       const numericId = task.id.replace('tache_', '');
+      // ✅ CORRIGÉ
       fetch(`/api/taches/${numericId}/colonne`, {
-        method: 'PATCH',
+        method:  'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tache_colonnes: destCol }),
+        body:    JSON.stringify({ tache_colonne: destCol }),
       }).catch(() => addToast('Erreur lors de la sauvegarde.', 'error'));
     }
 
@@ -629,7 +641,6 @@ export default function TasksPage() {
     const sourceCol = editingTask.colKey;
     if (sourceCol === destCol) { setIsModalOpen(false); return; }
 
-    // Bloquer retour en arrière pour non-admin/non-manager
     if (!estAdminPur && !estManager && COL_ORDER[destCol] < COL_ORDER[sourceCol]) {
       addToast("Vous ne pouvez pas revenir en arrière sur une action.", 'error');
       return;
@@ -649,13 +660,13 @@ export default function TasksPage() {
     if (isMobile) setActiveCol(destCol);
 
     const numericId = taskId.replace('action_', '');
-    const newStatut = destCol === 'done' ? 'fait' : destCol === 'inprogress' ? 'en_cours' : 'todo';
     const token     = localStorage.getItem('xamio_token');
     try {
+      // ✅ CORRIGÉ
       await fetch(`/api/actions/${numericId}/statut`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ action_statut: newStatut }),
+        body:    JSON.stringify({ action_statut: COL_TO_STATUT[destCol] }),
       });
       addToast(<span>Action déplacée vers <strong>{COL_LABEL[destCol]}</strong></span>, 'success');
     } catch {
@@ -667,19 +678,18 @@ export default function TasksPage() {
   const handleSave = async () => {
     if (!editingTask || editingTask.source === 'action') { setIsModalOpen(false); return; }
 
-    const token = localStorage.getItem('xamio_token');
+    const token     = localStorage.getItem('xamio_token');
     const numericId = editingTask.id.replace('tache_', '');
 
     try {
       await fetch(`/api/taches/${numericId}`, {
-        method: 'PUT',
+        method:  'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
+        body:    JSON.stringify({
           tache_titre:    editingTask.title,
-          description:    editingTask.description,
           tache_priorite: editingTask.priority,
           tache_echeance: editingTask.due,
-          tache_colonnes: editingTask.colKey,
+          tache_colonne:  editingTask.colKey, // ✅ CORRIGÉ — sans 's'
         }),
       });
 

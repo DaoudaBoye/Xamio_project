@@ -55,10 +55,6 @@ class Departement extends Model
         );
     }
 
-    public function taches(): HasMany
-    {
-        return $this->hasMany(Tache::class, 'dept_id', 'dept_id');
-    }
 
     public function ateliers(): HasMany
     {
