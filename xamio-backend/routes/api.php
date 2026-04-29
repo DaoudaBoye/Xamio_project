@@ -58,6 +58,34 @@ Route::middleware(['auth:sanctum', 'session.inactivity'])->group(function () {
         Route::post ('/logout-all', [AuthController::class, 'logoutAll']);
     });
 
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+    Route::get('/dashboard', function (Request $request) {
+        $user = $request->user();
+
+        $tachesQuery  = \App\Models\Tache::with('user');
+        $actionsQuery = \App\Models\Action::with(['user', 'compteRendu.reunion']);
+
+        app(\App\Models\Scopes\TacheVisibilityScope::class)->apply($tachesQuery, $user);
+        app(\App\Models\Scopes\ActionVisibilityScope::class)->apply($actionsQuery, $user);
+
+        $taches = $tachesQuery
+            ->select('tache_id', 'tache_titre', 'tache_colonne', 'tache_priorite', 'tache_echeance', 'user_id')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn($t) => $t->toArray());
+
+        $actions = $actionsQuery
+            ->select('action_id', 'action_texte', 'action_statut', 'action_echeance', 'user_id', 'cr_id')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn($a) => $a->toApiArray());
+
+        return response()->json([
+            'taches'  => $taches,
+            'actions' => $actions,
+        ]);
+    });
+
     // ── Réunions ──────────────────────────────────────────────────────────────
     Route::prefix('reunions')->group(function () {
         Route::get    ('/',                  [ReunionController::class, 'index']);
@@ -134,7 +162,7 @@ Route::middleware(['auth:sanctum', 'session.inactivity'])->group(function () {
     });
 
     // ── Actions CR ────────────────────────────────────────────────────────────
-    Route::get   ('/mes-actions',              [MesActionsController::class, 'index']);
-    Route::patch ('/actions/{action}/statut',  [MesActionsController::class, 'updateStatut']); // ← ajouté
+    Route::get   ('/mes-actions',             [MesActionsController::class, 'index']);
+    Route::patch ('/actions/{action}/statut', [MesActionsController::class, 'updateStatut']);
 
 }); // fin des routes protégées

@@ -8,7 +8,7 @@ const TASK_COLS = [
   { key: 'todo',   label: 'À faire',   color: 'var(--c-t3)'     },
 ];
 
-export const TaskProgress = memo(function TaskProgress({ taskCounts, canCreate, navigate }) {
+export const TaskProgress = memo(function TaskProgress({ taskCounts, loading, canCreate, navigate }) {
   const pct = completionPct(taskCounts);
   const pctColor =
     pct >= 75 ? 'var(--c-green)' :
@@ -23,7 +23,11 @@ export const TaskProgress = memo(function TaskProgress({ taskCounts, canCreate, 
         onAction={() => navigate('/tasks')}
       />
       <Card>
-        {taskCounts.total === 0 ? (
+        {loading ? (
+          <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--c-t3)', fontSize: 13 }}>
+            Chargement…
+          </div>
+        ) : taskCounts.total === 0 ? (
           <EmptyState
             icon="✅"
             title="Aucune tâche"
@@ -33,7 +37,6 @@ export const TaskProgress = memo(function TaskProgress({ taskCounts, canCreate, 
           />
         ) : (
           <div style={{ padding: '16px 18px' }}>
-            {/* Progress label */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
               <span style={{ fontSize: 11.5, color: 'var(--c-t3)' }}>Avancement global</span>
               <span style={{ fontSize: 14, fontWeight: 700, color: pctColor, fontVariantNumeric: 'tabular-nums' }}>
@@ -43,25 +46,19 @@ export const TaskProgress = memo(function TaskProgress({ taskCounts, canCreate, 
 
             <ProgressBar pct={pct} />
 
-            {/* Stat cells */}
             <div className="db-task-stats">
               {TASK_COLS.map(({ key, label, color }) => (
                 <div key={key} className="db-task-stat">
                   <p style={{
-                    fontSize: 22,
-                    fontWeight: 700,
-                    color,
+                    fontSize: 22, fontWeight: 700, color,
                     fontVariantNumeric: 'tabular-nums',
-                    lineHeight: 1.15,
-                    margin: 0,
+                    lineHeight: 1.15, margin: 0,
                   }}>
                     {taskCounts[key]}
                   </p>
                   <p style={{
-                    fontSize: 10,
-                    color: 'var(--c-t3)',
-                    marginTop: 3,
-                    textTransform: 'uppercase',
+                    fontSize: 10, color: 'var(--c-t3)',
+                    marginTop: 3, textTransform: 'uppercase',
                     letterSpacing: '.06em',
                   }}>
                     {label}

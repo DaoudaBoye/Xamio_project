@@ -18,8 +18,8 @@ class Tache extends Model
     ];
 
     // Valeurs réelles de la migration
-    const COLONNES  = ['a_faire', 'en_cours', 'en_revision', 'termine'];
-    const PRIORITES = ['basse', 'normale', 'haute', 'urgente'];
+    const COLONNES  = ['todo', 'inprogress', 'done'];
+    const PRIORITES = ['low', 'medium', 'high'];
 
     public function user()
     {

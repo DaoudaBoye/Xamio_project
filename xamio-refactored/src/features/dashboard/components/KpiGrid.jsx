@@ -1,8 +1,7 @@
 import { memo } from 'react';
 import { TrendChip } from './atoms';
-import { safeNum, completionPct, buildTaskCounts } from './dashboard.utils';
+import { completionPct } from './dashboard.utils';
 
-/* ── Single KPI card ── */
 const KpiCard = memo(function KpiCard({
   label, value, sub, subOk,
   accentColor, onClick, urgent,
@@ -19,25 +18,18 @@ const KpiCard = memo(function KpiCard({
       aria-label={`${label}: ${value}`}
     >
       {urgent && <div className="db-dot-urgent" aria-label="Attention requise" />}
-
       <p className="db-kpi-label">{label}</p>
       <p className="db-kpi-value">{value}</p>
-
-      {sub && (
-        <p className={`db-kpi-sub${subOk ? ' ok' : ''}`}>{sub}</p>
-      )}
-
-      {trend && (
-        <TrendChip delta={trend.delta} unit={trend.unit} label={trend.label} />
-      )}
+      {sub && <p className={`db-kpi-sub${subOk ? ' ok' : ''}`}>{sub}</p>}
+      {trend && <TrendChip delta={trend.delta} unit={trend.unit} label={trend.label} />}
     </div>
   );
 });
 
-/* ── KPI grid (4 cards) ── */
 export const KpiGrid = memo(function KpiGrid({
   upcomingCount, doneMtgs, loading,
-  taskCounts, confirmed, pending,
+  loadingTasks, taskCounts,
+  confirmed, pending,
   navigate,
 }) {
   const pct = completionPct(taskCounts);
@@ -59,11 +51,11 @@ export const KpiGrid = memo(function KpiGrid({
 
       <KpiCard
         label="Tâches en cours"
-        value={taskCounts.inprog}
-        sub={`${taskCounts.todo} en attente · ${taskCounts.done} terminées`}
+        value={loadingTasks ? '…' : taskCounts.inprog}
+        sub={loadingTasks ? 'Chargement…' : `${taskCounts.todo} en attente · ${taskCounts.done} terminées`}
         accentColor="var(--c-purple)"
         onClick={() => navigate('/tasks')}
-        trend={{ delta: 1, label: 'terminée(s) auj.' }}
+        trend={loadingTasks ? null : { delta: taskCounts.done, label: 'terminée(s)' }}
       />
 
       <KpiCard
@@ -79,12 +71,12 @@ export const KpiGrid = memo(function KpiGrid({
 
       <KpiCard
         label="Taux de complétion"
-        value={`${pct}%`}
-        sub={pct >= 75 ? 'Excellent rythme ✓' : pct >= 40 ? `${100 - pct}% restant` : 'À accélérer'}
+        value={loadingTasks ? '…' : `${pct}%`}
+        sub={loadingTasks ? 'Chargement…' : pct >= 75 ? 'Excellent rythme ✓' : pct >= 40 ? `${100 - pct}% restant` : 'À accélérer'}
         subOk={pct >= 75}
         accentColor={pctColor}
         onClick={() => navigate('/tasks')}
-        trend={{ delta: 5, unit: '%', label: 'vs sem. passée' }}
+        trend={loadingTasks ? null : { delta: pct, unit: '%', label: 'complétées' }}
       />
     </div>
   );

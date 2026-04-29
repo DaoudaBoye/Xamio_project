@@ -1,8 +1,3 @@
-/* ═══════════════════════════════════════
-   dashboard.utils.js
-   Pure functions — no React, no side-effects
-═══════════════════════════════════════ */
-
 export const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'];
 
 export const safeNum = (v, fallback = 0) => {
@@ -10,13 +5,59 @@ export const safeNum = (v, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-export function buildTaskCounts(tasks) {
-  return {
-    done:   safeNum(tasks?.done?.length),
-    inprog: safeNum(tasks?.inprogress?.length),
-    todo:   safeNum(tasks?.todo?.length),
-    total:  safeNum(tasks?.done?.length) + safeNum(tasks?.inprogress?.length) + safeNum(tasks?.todo?.length),
-  };
+/**
+ * Normalise une tâche API → colonne kanban
+ * tache_colonne : 'todo' | 'inprogress' | 'done'
+ */
+function tacheToColonne(t) {
+  return t.tache_colonne ?? 'todo';
+}
+
+/**
+ * Normalise une action compte-rendu → colonne kanban
+ * action_statut : 'a_faire' | 'en_cours' | 'termine' | 'annule'
+ * 'annule' est exclu du décompte (ni todo ni done)
+ */
+function actionToColonne(a) {
+  switch (a.action_statut) {
+    case 'termine':  return 'done';
+    case 'en_cours': return 'inprogress';
+    case 'a_faire':  return 'todo';
+    default:         return null; // 'annule' → ignoré
+  }
+}
+
+/**
+ * Accepte :
+ * - un tableau plat de tâches API      [{ tache_colonne }]
+ * - un objet kanban mockData            { todo:[], inprogress:[], done:[] }
+ * - un objet { tasks, actions }         pour combiner les deux sources
+ */
+export function buildTaskCounts(input) {
+  // Format combiné { tasks: [...], actions: [...] }
+  if (input && !Array.isArray(input) && ('tasks' in input || 'actions' in input)) {
+    const taches  = (input.tasks   ?? []).map(tacheToColonne).filter(Boolean);
+    const actions = (input.actions ?? []).map(actionToColonne).filter(Boolean);
+    const all     = [...taches, ...actions];
+    const done    = all.filter(c => c === 'done').length;
+    const inprog  = all.filter(c => c === 'inprogress').length;
+    const todo    = all.filter(c => c === 'todo').length;
+    return { done, inprog, todo, total: done + inprog + todo };
+  }
+
+  // Tableau plat API tâches seules
+  if (Array.isArray(input)) {
+    const done   = input.filter(t => t.tache_colonne === 'done').length;
+    const inprog = input.filter(t => t.tache_colonne === 'inprogress').length;
+    const todo   = input.filter(t => t.tache_colonne === 'todo').length;
+    return { done, inprog, todo, total: done + inprog + todo };
+  }
+
+  // Fallback format kanban objet { todo:[], inprogress:[], done:[] }
+  const done   = safeNum(input?.done?.length);
+  const inprog = safeNum(input?.inprogress?.length);
+  const todo   = safeNum(input?.todo?.length);
+  return { done, inprog, todo, total: done + inprog + todo };
 }
 
 export function completionPct(counts) {
@@ -93,7 +134,6 @@ export function formatApptDate(dateStr) {
   return dateStr.slice(0, 10).split('-').reverse().join('/');
 }
 
-/** Returns trend descriptor { delta, label, dir } */
 export function buildTrend(delta, label, unit = '') {
   return { delta, label, unit, dir: delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat' };
 }
