@@ -13,11 +13,12 @@ class Tache extends Model
         'tache_priorite',
         'tache_colonne',
         'tache_echeance',
+        'description',   // ← ajouté
+        'dept_id',       // ← ajouté
         'org_id',
         'user_id',
     ];
 
-    // Valeurs réelles de la migration
     const COLONNES  = ['todo', 'inprogress', 'done'];
     const PRIORITES = ['low', 'medium', 'high'];
 
@@ -39,6 +40,8 @@ class Tache extends Model
             'tache_echeance' => $this->tache_echeance,
             'tache_priorite' => $this->tache_priorite,
             'tache_colonne'  => $this->tache_colonne,
+            'description'    => $this->description,  // ← ajouté
+            'dept_id'        => $this->dept_id,      // ← ajouté
             'user_id'        => $this->user_id,
             'user'           => $this->user ? [
                 'util_prenom' => $this->user->util_prenom,

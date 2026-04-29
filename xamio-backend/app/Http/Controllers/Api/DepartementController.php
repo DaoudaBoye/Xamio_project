@@ -12,7 +12,6 @@ class DepartementController extends Controller
 {
     /**
      * GET /api/departements
-     * Liste tous les départements actifs avec leurs membres (enrichi pour éviter les N+1 côté front)
      */
     public function index(Request $request): JsonResponse
     {
@@ -26,12 +25,22 @@ class DepartementController extends Controller
             ->where('dept_actif', true)
             ->with([
                 'manager:id,util_prenom,util_nom,email',
-                // Membres inclus ici : le front n'a plus besoin d'appeler /departements/{id}
-                'membres:id,util_prenom,util_nom,email',
+                'membres' => fn($q) => $q->select('users.id', 'users.util_prenom', 'users.util_nom', 'users.email'),
             ])
             ->withCount('membres')
             ->orderBy('dept_nom')
-            ->get();
+            ->get()
+            ->map(fn($d) => [
+                'dept_id'       => $d->dept_id,
+                'dept_nom'      => $d->dept_nom,
+                'membres_count' => $d->membres_count,
+                'membres'       => $d->membres->map(fn($u) => [
+                    'user_id'     => $u->id,
+                    'util_prenom' => $u->util_prenom,
+                    'util_nom'    => $u->util_nom,
+                    'email'       => $u->email,
+                ]),
+            ]);
 
         return response()->json([
             'success'      => true,
@@ -41,7 +50,6 @@ class DepartementController extends Controller
 
     /**
      * POST /api/departements
-     * Créer un nouveau département
      */
     public function store(Request $request): JsonResponse
     {
@@ -57,7 +65,6 @@ class DepartementController extends Controller
             return response()->json(['success' => false, 'message' => 'Organisation introuvable.'], 403);
         }
 
-        // Vérifier unicité du nom dans l'organisation
         $exists = Departement::where('org_id', $orgId)
             ->where('dept_nom', $validated['dept_nom'])
             ->exists();
@@ -86,7 +93,6 @@ class DepartementController extends Controller
 
     /**
      * GET /api/departements/{id}
-     * Détail d'un département avec ses membres
      */
     public function show(Request $request, int $id): JsonResponse
     {
@@ -96,19 +102,28 @@ class DepartementController extends Controller
             ->where('org_id', $orgId)
             ->with([
                 'manager:id,util_prenom,util_nom,email',
-                'membres:id,util_prenom,util_nom,email',
+                'membres' => fn($q) => $q->select('users.id', 'users.util_prenom', 'users.util_nom', 'users.email'),
             ])
             ->firstOrFail();
 
         return response()->json([
             'success'     => true,
-            'departement' => $departement,
+            'departement' => [
+                'dept_id'  => $departement->dept_id,
+                'dept_nom' => $departement->dept_nom,
+                'manager'  => $departement->manager,
+                'membres'  => $departement->membres->map(fn($u) => [
+                    'user_id'     => $u->id,
+                    'util_prenom' => $u->util_prenom,
+                    'util_nom'    => $u->util_nom,
+                    'email'       => $u->email,
+                ]),
+            ],
         ]);
     }
 
     /**
      * PUT /api/departements/{id}
-     * Modifier un département
      */
     public function update(Request $request, int $id): JsonResponse
     {
@@ -136,7 +151,6 @@ class DepartementController extends Controller
 
     /**
      * DELETE /api/departements/{id}
-     * Désactiver un département (soft delete)
      */
     public function destroy(Request $request, int $id): JsonResponse
     {
@@ -156,7 +170,6 @@ class DepartementController extends Controller
 
     /**
      * POST /api/departements/{id}/membres
-     * Ajouter un membre au département
      */
     public function addMembre(Request $request, int $id): JsonResponse
     {
@@ -195,7 +208,6 @@ class DepartementController extends Controller
 
     /**
      * DELETE /api/departements/{id}/membres/{userId}
-     * Retirer un membre du département
      */
     public function removeMembre(Request $request, int $id, int $userId): JsonResponse
     {
