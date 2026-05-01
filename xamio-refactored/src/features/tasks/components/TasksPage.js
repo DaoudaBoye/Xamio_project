@@ -7,9 +7,6 @@ import { useNotif }       from '../../../context/NotifContext';
 import { useAuth }        from '../../../context/AuthContext';
 import CreateTacheModal   from './CreateTacheModal';
 
-/* ═══════════════════════════════════════════════════════════════
-   GLOBAL CSS
-   ═══════════════════════════════════════════════════════════════ */
 const GLOBAL_CSS = `
   *, *::before, *::after { box-sizing: border-box; }
   .xm-tasks { font-family: var(--font-sans); }
@@ -56,7 +53,6 @@ const GLOBAL_CSS = `
   }
   @media(hover:none){ .task-card.interactive:hover{ transform:none; } }
   .task-card.dragging  { opacity:.4; transform:scale(.97); }
-  .task-card.locked    { opacity:.55; cursor:not-allowed; filter:grayscale(.3); }
   .task-card.overdue   { border-left:3px solid #E24B4A; }
   .task-card.due-soon  { border-left:3px solid #BA7517; }
   .task-card.is-next   { border-left:3px solid #E8500A; box-shadow:0 0 0 3px rgba(232,80,10,.08); }
@@ -175,9 +171,6 @@ function useGlobalStyle() {
   }, []);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   TOKENS
-   ═══════════════════════════════════════════════════════════════ */
 const T = {
   bg1: 'var(--color-background-secondary)',
   bg2: 'var(--color-background-tertiary)',
@@ -199,9 +192,6 @@ const T = {
   sdrop: 'var(--shadow-dropdown)',
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   CONSTANTES — ✅ valeurs alignées avec la DB
-   ═══════════════════════════════════════════════════════════════ */
 const PRIORITIES = [
   { val:'high',   label:'Haute',   dot:'#E24B4A', color:'red'  },
   { val:'medium', label:'Normale', dot:'#BA7517', color:'gold' },
@@ -215,24 +205,14 @@ const COL_CFG = {
 };
 const COL_ORDER = { todo:0, inprogress:1, done:2 };
 
-// ✅ Les valeurs DB sont maintenant todo/inprogress/done
-// On garde les anciennes pour compatibilité avec les données existantes
 const STATUT_TO_COL = {
-  todo:        'todo',
-  inprogress:  'inprogress',
-  done:        'done',
-  a_faire:     'todo',
-  en_cours:    'inprogress',
-  en_revision: 'inprogress',
-  termine:     'done',
-  annule:      'todo',
+  todo:'todo', inprogress:'inprogress', done:'done',
+  a_faire:'todo', en_cours:'inprogress', en_revision:'inprogress',
+  termine:'done', annule:'todo',
 };
 
-// ✅ On envoie directement les valeurs DB
 const COL_TO_STATUT = {
-  todo:       'todo',
-  inprogress: 'inprogress',
-  done:       'done',
+  todo:'todo', inprogress:'inprogress', done:'done',
 };
 
 const TAB_CFG = [
@@ -253,9 +233,6 @@ const ROLES_MANAGER    = ['Manager','manager'];
 const ROLES_DIRECTEUR  = ['Directeur','directeur'];
 const ROLES_SUPERVISEUR= [...ROLES_ADMIN,...ROLES_MANAGER,'Assistant','Assistante','assistant','assistante'];
 
-/* ═══════════════════════════════════════════════════════════════
-   SVG ICONS
-   ═══════════════════════════════════════════════════════════════ */
 const Ic = {
   plus:   () => <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
   search: () => <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
@@ -266,11 +243,9 @@ const Ic = {
   cal:    () => <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M5 1v3M11 1v3M2 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
   user:   () => <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.4"/><path d="M2 14c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
   cr:     () => <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  lock:   () => <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   HELPERS
-   ═══════════════════════════════════════════════════════════════ */
 function getDueStatus(dueDateStr, isDone) {
   if (isDone || !dueDateStr) return null;
   const due = /^\d{4}-\d{2}-\d{2}/.test(dueDateStr)
@@ -294,8 +269,9 @@ function normalizeTache(t) {
     title:       t.tache_titre    ?? '',
     assignee:    t.user ? `${t.user.util_prenom} ${t.user.util_nom}`.trim() : '',
     user_id:     t.user_id != null ? Number(t.user_id) : null,
+    dept_id:     t.dept_id != null ? Number(t.dept_id) : null,
     due:         t.tache_echeance ?? '',
-    priority:    t.tache_priorite ?? 'medium', // ✅ default medium
+    priority:    t.tache_priorite ?? 'medium',
     source:      'tache',
     colKey:      STATUT_TO_COL[t.tache_colonne] ?? 'todo',
     description: t.description ?? '',
@@ -309,7 +285,7 @@ function normalizeAction(a) {
     assignee:    a.assignee     ?? '',
     user_id:     a.user_id != null ? Number(a.user_id) : null,
     due:         a.action_echeance ?? '',
-    priority:    'medium', // ✅ default medium
+    priority:    'medium',
     source:      'action',
     reunion:     a.reunion ?? null,
     description: a.reunion ? `Action issue de la réunion : ${a.reunion}` : '',
@@ -325,17 +301,11 @@ function repartir(items) {
   };
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   MICRO-HOOKS
-   ═══════════════════════════════════════════════════════════════ */
 function useHover() {
   const [h, set] = useState(false);
   return [h, { onMouseEnter:()=>set(true), onMouseLeave:()=>set(false) }];
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   CUSTOM HOOKS
-   ═══════════════════════════════════════════════════════════════ */
 function useInsights(tasks) {
   return useMemo(() => {
     const all = [...tasks.todo, ...tasks.inprogress, ...tasks.done];
@@ -355,9 +325,6 @@ function useInsights(tasks) {
   }, [tasks]);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ATOMS
-   ═══════════════════════════════════════════════════════════════ */
 function PrimaryBtn({ children, onClick, disabled, small, loading }) {
   const [h, hp] = useHover();
   return (
@@ -392,13 +359,9 @@ function GhostBtn({ children, onClick, small, disabled }) {
   );
 }
 
-/* ─── Stats Row ─── */
 function StatsRow({ insights }) {
   return (
-    <div style={{
-      display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',
-      gap:10, marginBottom:20,
-    }}>
+    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:20 }}>
       {STAT_CFG.map(({ key, label, color }) => {
         const n   = insights.byCol[key] || 0;
         const pct = insights.total > 0 ? Math.round(n / insights.total * 100) : 0;
@@ -422,10 +385,7 @@ function StatCard({ value, label, color, pct }) {
         <span style={{ fontSize:11, color:T.t3, fontFamily:'var(--font-mono)', marginBottom:2 }}>{pct}%</span>
       </div>
       <div style={{ height:2, background:T.bg3, borderRadius:99, marginBottom:8, overflow:'hidden' }}>
-        <div style={{
-          height:'100%', background:color, borderRadius:99, width:`${pct}%`,
-          transformOrigin:'left', animation:'xm-bar .7s cubic-bezier(.22,1,.36,1)',
-        }}/>
+        <div style={{ height:'100%', background:color, borderRadius:99, width:`${pct}%`, transformOrigin:'left', animation:'xm-bar .7s cubic-bezier(.22,1,.36,1)' }}/>
       </div>
       <div style={{ fontSize:11.5, color:T.t3, fontWeight:500, display:'flex', alignItems:'center', gap:5 }}>
         <span style={{ width:6, height:6, borderRadius:'50%', background:color, flexShrink:0 }}/>
@@ -435,7 +395,6 @@ function StatCard({ value, label, color, pct }) {
   );
 }
 
-/* ─── Tab Bar ─── */
 function TabBar({ active, setActive, counts }) {
   return (
     <div style={{ display:'flex', gap:2, borderBottom:`1px solid ${T.bd0}`, marginBottom:20 }}>
@@ -468,7 +427,6 @@ function TabBar({ active, setActive, counts }) {
   );
 }
 
-/* ─── Filters Bar ─── */
 function FiltersBar({ query, setQuery, priorityFilter, setPriority, activeCount }) {
   const hasActive = query !== '' || priorityFilter !== null;
   return (
@@ -499,32 +457,23 @@ function FiltersBar({ query, setQuery, priorityFilter, setPriority, activeCount 
             }}><Ic.close /></button>
           )}
         </div>
-
         <div style={{ display:'flex', gap:6, flexShrink:0, flexWrap:'wrap' }}>
-          <button
-            onClick={() => setPriority(null)}
-            style={{
-              padding:'5px 12px', borderRadius:20, fontSize:11, fontWeight:700,
-              cursor:'pointer', border:`1px solid ${!priorityFilter ? T.acc : T.bd0}`,
-              background: !priorityFilter ? T.accm : 'transparent',
-              color: !priorityFilter ? T.acc : T.t3,
-            }}
-          >Toutes</button>
+          <button onClick={() => setPriority(null)} style={{
+            padding:'5px 12px', borderRadius:20, fontSize:11, fontWeight:700,
+            cursor:'pointer', border:`1px solid ${!priorityFilter ? T.acc : T.bd0}`,
+            background: !priorityFilter ? T.accm : 'transparent',
+            color: !priorityFilter ? T.acc : T.t3,
+          }}>Toutes</button>
           {PRIORITIES.map(p => (
-            <button
-              key={p.val}
-              onClick={() => setPriority(priorityFilter === p.val ? null : p.val)}
-              style={{
-                padding:'5px 12px', borderRadius:20, fontSize:11, fontWeight:700,
-                cursor:'pointer',
-                border: `1px solid ${priorityFilter === p.val ? p.dot : T.bd0}`,
-                background: priorityFilter === p.val ? p.dot + '22' : 'transparent',
-                color: priorityFilter === p.val ? p.dot : T.t3,
-              }}
-            >{p.label}</button>
+            <button key={p.val} onClick={() => setPriority(priorityFilter === p.val ? null : p.val)} style={{
+              padding:'5px 12px', borderRadius:20, fontSize:11, fontWeight:700,
+              cursor:'pointer',
+              border: `1px solid ${priorityFilter === p.val ? p.dot : T.bd0}`,
+              background: priorityFilter === p.val ? p.dot + '22' : 'transparent',
+              color: priorityFilter === p.val ? p.dot : T.t3,
+            }}>{p.label}</button>
           ))}
         </div>
-
         {hasActive && (
           <button
             onClick={() => { setQuery(''); setPriority(null); }}
@@ -541,15 +490,9 @@ function FiltersBar({ query, setQuery, priorityFilter, setPriority, activeCount 
           </button>
         )}
       </div>
-
       {hasActive && (
         <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap', alignItems:'center' }}>
-          {priorityFilter && (
-            <FilterChip
-              label={PRIORITIES.find(p => p.val === priorityFilter)?.label}
-              onRemove={() => setPriority(null)}
-            />
-          )}
+          {priorityFilter && <FilterChip label={PRIORITIES.find(p => p.val === priorityFilter)?.label} onRemove={() => setPriority(null)} />}
           {query && <FilterChip label={`"${query}"`} onRemove={() => setQuery('')} />}
           <span style={{ fontSize:11, color:T.t3 }}>{activeCount} résultat{activeCount !== 1 ? 's' : ''}</span>
         </div>
@@ -578,18 +521,13 @@ function FilterChip({ label, onRemove }) {
   );
 }
 
-/* ─── Empty State ─── */
 function EmptyState({ hasFilters }) {
   return (
-    <div style={{
-      textAlign:'center', padding:'72px 24px',
-      background:T.bg1, borderRadius:16, border:`1px solid ${T.bd0}`,
-    }}>
+    <div style={{ textAlign:'center', padding:'72px 24px', background:T.bg1, borderRadius:16, border:`1px solid ${T.bd0}` }}>
       <div style={{
         width:52, height:52, borderRadius:14,
         background:T.accm, border:`1px solid ${T.accb}`,
-        display:'flex', alignItems:'center', justifyContent:'center',
-        margin:'0 auto 18px',
+        display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px',
       }}>
         <svg width="24" height="24" viewBox="0 0 22 22" fill="none">
           <rect x="1" y="2" width="20" height="18" rx="3" stroke={T.acc} strokeWidth="1.6"/>
@@ -606,7 +544,6 @@ function EmptyState({ hasFilters }) {
   );
 }
 
-/* ─── Skeleton Card ─── */
 function SkeletonCard() {
   return (
     <div style={{ background:T.bg1, border:`1px solid ${T.bd0}`, borderRadius:12, padding:16, marginBottom:10 }}>
@@ -617,7 +554,6 @@ function SkeletonCard() {
   );
 }
 
-/* ─── Due Badge ─── */
 function DueBadge({ due }) {
   if (!due) return null;
   const label =
@@ -627,17 +563,10 @@ function DueBadge({ due }) {
   return <span className={`due-badge ${due.status}`}>{label}</span>;
 }
 
-/* ─── View Switcher ─── */
 function ViewSwitcher({ view, setView }) {
   return (
-    <div style={{
-      display:'flex', gap:2, background:T.bg1, padding:3,
-      borderRadius:10, border:`1px solid ${T.bd0}`, flexShrink:0,
-    }}>
-      {[
-        { key:'Kanban', icon:<Ic.kanban /> },
-        { key:'Liste',  icon:<Ic.list />   },
-      ].map(({ key, icon }) => {
+    <div style={{ display:'flex', gap:2, background:T.bg1, padding:3, borderRadius:10, border:`1px solid ${T.bd0}`, flexShrink:0 }}>
+      {[{ key:'Kanban', icon:<Ic.kanban /> }, { key:'Liste', icon:<Ic.list /> }].map(({ key, icon }) => {
         const active = view === key;
         return (
           <button key={key} onClick={() => setView(key)} style={{
@@ -656,8 +585,7 @@ function ViewSwitcher({ view, setView }) {
   );
 }
 
-/* ─── Task Card ─── */
-const TaskCard = memo(function TaskCard({ task, colKey, index, canModify, canDrag, isMobile, draggingId, onDragStart, onDragEnd, onDragOver, onClick, onMoveLeft, onMoveRight, isFirst, isLast }) {
+const TaskCard = memo(function TaskCard({ task, colKey, index, canDrag, isMobile, draggingId, onDragStart, onDragEnd, onDragOver, onClick, onMoveLeft, onMoveRight, isFirst, isLast }) {
   const isDone   = colKey === 'done';
   const isAction = task.source === 'action';
   const priority = PRIORITIES.find(p => p.val === task.priority);
@@ -673,8 +601,7 @@ const TaskCard = memo(function TaskCard({ task, colKey, index, canModify, canDra
       onClick={onClick}
       style={{ animationDelay:`${index * 25}ms` }}
       className={[
-        'task-card',
-        canModify ? 'interactive' : 'locked',
+        'task-card interactive',
         draggingId === task.id ? 'dragging' : '',
         due?.status === 'overdue'  ? 'overdue'  : '',
         due?.status === 'due-soon' ? 'due-soon' : '',
@@ -729,8 +656,7 @@ const TaskCard = memo(function TaskCard({ task, colKey, index, canModify, canDra
         <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
           {task.due && (
             <span style={{
-              fontSize:10, color:T.t3,
-              display:'flex', alignItems:'center', gap:4,
+              fontSize:10, color:T.t3, display:'flex', alignItems:'center', gap:4,
               ...(due?.status === 'overdue'  ? { color:'#E24B4A', fontWeight:700 } : {}),
               ...(due?.status === 'due-soon' ? { color:'#BA7517', fontWeight:700 } : {}),
             }}>
@@ -739,7 +665,6 @@ const TaskCard = memo(function TaskCard({ task, colKey, index, canModify, canDra
           )}
           {due && <DueBadge due={due} />}
         </div>
-
         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           {isMobile && canDrag && (
             <div style={{ display:'flex', gap:4 }} onClick={e => e.stopPropagation()}>
@@ -747,16 +672,14 @@ const TaskCard = memo(function TaskCard({ task, colKey, index, canModify, canDra
                 <button onClick={onMoveLeft} style={{
                   width:24, height:24, borderRadius:6,
                   border:`1px solid ${T.bd0}`, background:T.bg1,
-                  color:T.t3, display:'flex', alignItems:'center',
-                  justifyContent:'center', cursor:'pointer', fontSize:12,
+                  color:T.t3, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:12,
                 }}>←</button>
               )}
               {!isLast && (
                 <button onClick={onMoveRight} style={{
                   width:24, height:24, borderRadius:6,
                   border:`1px solid ${T.acc}`, background:T.accm,
-                  color:T.acc, display:'flex', alignItems:'center',
-                  justifyContent:'center', cursor:'pointer', fontSize:12,
+                  color:T.acc, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:12,
                 }}>→</button>
               )}
             </div>
@@ -778,17 +701,48 @@ const TaskCard = memo(function TaskCard({ task, colKey, index, canModify, canDra
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   MODAL ÉDITION
+   MODAL — LECTURE / ÉDITION
    ═══════════════════════════════════════════════════════════════ */
-function EditModal({ open, task, isMobile, estAdminPur, estManager, estDirecteur, user, onClose, onSave, onMoveAction, setTask }) {
+function EditModal({
+  open, task, isMobile,
+  estAdminPur, estManager, estDirecteur,
+  user, peutModifier,                     // ← peutModifier reçu en prop
+  onClose, onSave, onMoveAction, setTask,
+}) {
   if (!task) return null;
+
   const isAction = task.source === 'action';
 
+  // ✅ Admin ou manager du même département → peut modifier
+  // ✅ Employé assigné → lecture seule (ne peut que déplacer via kanban)
+  const canEdit  = peutModifier(task);
+  const readOnly = !canEdit;
+
   return (
-    <Modal open={open} onClose={onClose} title="Détails de la tâche" width={isMobile ? '95vw' : 800}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={readOnly ? 'Détails de la tâche' : 'Modifier la tâche'}
+      width={isMobile ? '95vw' : 800}
+    >
       <div className="modal-grid">
         <div className="modal-main">
-          {isAction ? (
+
+          {/* ── Bannière lecture seule ── */}
+          {readOnly && !isAction && (
+            <div style={{
+              display:'flex', alignItems:'center', gap:10,
+              padding:'10px 14px', borderRadius:10,
+              background:T.bg2, border:`1px solid ${T.bd0}`,
+              fontSize:12, color:T.t3,
+            }}>
+              <Ic.lock />
+              Consultation uniquement — seul le manager du département ou un administrateur peut modifier cette tâche.
+            </div>
+          )}
+
+          {/* ── Bannière action CR ── */}
+          {isAction && (
             <div style={{ padding:'12px 16px', borderRadius:10, background:'#FFF0E8', border:'1px solid #FDBA8C' }}>
               <p style={{ fontSize:12, fontWeight:700, color:T.acc, margin:'0 0 4px', display:'flex', alignItems:'center', gap:6 }}>
                 <Ic.cr /> Action issue d'un compte rendu
@@ -798,30 +752,49 @@ function EditModal({ open, task, isMobile, estAdminPur, estManager, estDirecteur
                 {task.reunion && <><br/>Réunion : <strong>{task.reunion}</strong></>}
               </p>
             </div>
-          ) : (
-            <Input label="TITRE" value={task.title} onChange={e => setTask({ ...task, title:e.target.value })} />
           )}
 
+          {/* ── Titre ── */}
+          {!isAction && (
+            readOnly ? (
+              <div>
+                <label className="modal-label">TITRE</label>
+                <p style={{ fontSize:14, fontWeight:600, color:T.t1, margin:0, lineHeight:1.4 }}>{task.title}</p>
+              </div>
+            ) : (
+              <Input label="TITRE" value={task.title} onChange={e => setTask({ ...task, title:e.target.value })} />
+            )
+          )}
+
+          {/* ── Description ── */}
           <div>
             <label className="modal-label">DESCRIPTION</label>
-            <textarea
-              disabled={isAction}
-              value={task.description || ''}
-              onChange={e => setTask({ ...task, description:e.target.value })}
-              placeholder={isAction ? '' : 'Ajoutez des détails…'}
-              style={{
-                width:'100%', minHeight:110, padding:12, borderRadius:8,
-                border:`1px solid ${T.bd0}`,
-                background: isAction ? T.bg1 : 'var(--color-background-primary)',
-                color:T.t1, fontFamily:'inherit', fontSize:13,
-                resize:'vertical', boxSizing:'border-box',
-                opacity: isAction ? .6 : 1, outline:'none',
-              }}
-            />
+            {readOnly ? (
+              <p style={{ fontSize:13, color:T.t2, margin:0, lineHeight:1.7, whiteSpace:'pre-wrap' }}>
+                {task.description
+                  ? task.description
+                  : <span style={{ color:T.t3, fontStyle:'italic' }}>Aucune description</span>
+                }
+              </p>
+            ) : (
+              <textarea
+                value={task.description || ''}
+                onChange={e => setTask({ ...task, description:e.target.value })}
+                placeholder="Ajoutez des détails…"
+                style={{
+                  width:'100%', minHeight:110, padding:12, borderRadius:8,
+                  border:`1px solid ${T.bd0}`,
+                  background:'var(--color-background-primary)',
+                  color:T.t1, fontFamily:'inherit', fontSize:13,
+                  resize:'vertical', boxSizing:'border-box', outline:'none',
+                }}
+              />
+            )}
           </div>
         </div>
 
         <div className="modal-sidebar">
+          {/* ── Statut ── */}
           <div>
             <label className="modal-label">STATUT</label>
             <p style={{ fontSize:12, fontWeight:700, color:T.acc, margin:0, textTransform:'uppercase' }}>
@@ -829,16 +802,29 @@ function EditModal({ open, task, isMobile, estAdminPur, estManager, estDirecteur
             </p>
           </div>
 
+          {/* ── Échéance affichage ── */}
           <div>
             <label className="modal-label">ÉCHÉANCE</label>
             <p style={{ fontSize:13, margin:'0 0 5px', color:T.t3 }}>{task.due || '—'}</p>
             <DueBadge due={getDueStatus(task.due, task.colKey === 'done')} />
           </div>
 
+          {/* ── Priorité ── */}
           {!isAction && (
-            <>
-              <div>
-                <label className="modal-label">PRIORITÉ</label>
+            <div>
+              <label className="modal-label">PRIORITÉ</label>
+              {readOnly ? (
+                (() => {
+                  const p = PRIORITIES.find(p => p.val === task.priority);
+                  return p ? (
+                    <span style={{
+                      display:'inline-flex', alignItems:'center', gap:4,
+                      fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
+                      background: p.dot + '22', color:p.dot, border:`1px solid ${p.dot}44`,
+                    }}>{p.label}</span>
+                  ) : <span style={{ color:T.t3 }}>—</span>;
+                })()
+              ) : (
                 <div style={{ display:'flex', gap:6, marginTop:4, flexWrap:'wrap' }}>
                   {PRIORITIES.map(p => (
                     <button key={p.val} onClick={() => setTask({ ...task, priority:p.val })} style={{
@@ -849,17 +835,25 @@ function EditModal({ open, task, isMobile, estAdminPur, estManager, estDirecteur
                     }}>{p.label}</button>
                   ))}
                 </div>
-              </div>
-              <Input label="ÉCHÉANCE" value={task.due} onChange={e => setTask({ ...task, due:e.target.value })} />
-            </>
+              )}
+            </div>
           )}
 
+          {/* ── Échéance édition ── */}
+          {!isAction && !readOnly && (
+            <Input label="MODIFIER L'ÉCHÉANCE" value={task.due} onChange={e => setTask({ ...task, due:e.target.value })} />
+          )}
+
+          {/* ── Responsable ── */}
           <div>
             <label className="modal-label">RESPONSABLE</label>
             <p style={{ fontSize:13, color:T.t3, margin:0 }}>{task.assignee || '—'}</p>
           </div>
 
+          {/* ── Actions ── */}
           <div className="modal-sidebar-actions">
+
+            {/* Déplacer les actions CR */}
             {isAction && (estAdminPur || estManager || Number(task.user_id) === Number(user?.id)) && (
               <>
                 {task.colKey !== 'inprogress' && task.colKey !== 'done' && (
@@ -879,9 +873,14 @@ function EditModal({ open, task, isMobile, estAdminPur, estManager, estDirecteur
                 )}
               </>
             )}
-            {!isAction && !estDirecteur && (
-              <Button variant="primary" onClick={onSave} style={{ width:'100%' }}>Enregistrer</Button>
+
+            {/* Enregistrer — uniquement si canEdit */}
+            {canEdit && (
+              <Button variant="primary" onClick={onSave} style={{ width:'100%' }}>
+                Enregistrer
+              </Button>
             )}
+
             <Button variant="ghost" onClick={onClose} style={{ width:'100%' }}>Fermer</Button>
           </div>
         </div>
@@ -904,20 +903,20 @@ export default function TasksPage() {
   const estDirecteur   = ROLES_DIRECTEUR.includes(raw);
   const estSuperviseur = ROLES_SUPERVISEUR.includes(raw);
 
-  const [tasks,        setTasks]      = useState({ todo:[], inprogress:[], done:[] });
-  const [loading,      setLoading]    = useState(true);
-  const [view,         setView]       = useState('Kanban');
-  const [activeTab,    setActiveTab]  = useState('all');
-  const [query,        setQuery]      = useState('');
-  const [priorityFilter, setPriority] = useState(null);
-  const [dragInfo,     setDragInfo]   = useState({ id:null, sCol:null });
-  const [overCol,      setOverCol]    = useState(null);
-  const [draggingId,   setDraggingId] = useState(null);
-  const [editingTask,  setEditingTask]= useState(null);
-  const [isEditOpen,   setIsEditOpen] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [activeCol,    setActiveCol]  = useState('todo');
-  const [isMobile,     setIsMobile]   = useState(false);
+  const [tasks,          setTasks]        = useState({ todo:[], inprogress:[], done:[] });
+  const [loading,        setLoading]      = useState(true);
+  const [view,           setView]         = useState('Kanban');
+  const [activeTab,      setActiveTab]    = useState('all');
+  const [query,          setQuery]        = useState('');
+  const [priorityFilter, setPriority]     = useState(null);
+  const [dragInfo,       setDragInfo]     = useState({ id:null, sCol:null });
+  const [overCol,        setOverCol]      = useState(null);
+  const [draggingId,     setDraggingId]   = useState(null);
+  const [editingTask,    setEditingTask]  = useState(null);
+  const [isEditOpen,     setIsEditOpen]   = useState(false);
+  const [isCreateOpen,   setIsCreateOpen] = useState(false);
+  const [activeCol,      setActiveCol]    = useState('todo');
+  const [isMobile,       setIsMobile]     = useState(false);
 
   const prevRef = useRef(null);
 
@@ -949,27 +948,56 @@ export default function TasksPage() {
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
 
-  const estAssigne   = useCallback(t => !!user && Number(t.user_id) === Number(user.id), [user]);
-  const peutDragguer = useCallback(t => {
-    if (!t || estDirecteur) return false;
-    if (estAdminPur || estManager) return true;
-    return estAssigne(t);
-  }, [estAdminPur, estDirecteur, estManager, estAssigne]);
-  const peutDeposer  = useCallback((taskId, dest, src) => {
-    const all  = [...tasks.todo, ...tasks.inprogress, ...tasks.done];
-    const task = all.find(t => t.id === taskId);
-    if (!task || estDirecteur) return false;
-    if (estAdminPur || estManager) return true;
-    if (!estAssigne(task)) return false;
-    return COL_ORDER[dest] > COL_ORDER[src];
-  }, [tasks, estAdminPur, estDirecteur, estManager, estAssigne]);
-  const peutModifier = useCallback(t => {
-    if (estDirecteur) return false;
-    if (estAdminPur || estManager || estSuperviseur) return true;
-    return estAssigne(t);
+  const estAssigne = useCallback(t => !!user && Number(t.user_id) === Number(user.id), [user]);
+
+  // ─── Peut modifier le contenu de la tâche ───────────────────────────────
+  // Admin → toujours
+  // Manager → seulement si la tâche appartient à l'un de ses départements
+  // Employé assigné → NON (peut uniquement déplacer via kanban)
+// ─── Peut modifier le contenu de la tâche ───────────────────────────────
+const peutModifier = useCallback(t => {
+  if (!t || t.source === 'action') return false;
+  if (estAdminPur) return true;
+  // Manager → on laisse passer côté UI, le backend valide via la policy
+  // Si dept_ids est disponible, on affine ; sinon on fait confiance au backend
+  if (estManager) {
+    const deptIds = user?.dept_ids;
+    if (!deptIds || deptIds.length === 0) return true; // dept_ids absent → déléguer au backend
+    return t.dept_id != null && deptIds.map(Number).includes(Number(t.dept_id));
+  }
+  return false;
+}, [estAdminPur, estManager, user]);
+
+// ─── Peut déplacer la tâche entre colonnes ──────────────────────────────
+const peutDragguer = useCallback(t => {
+  if (!t || estDirecteur) return false;
+  if (estAdminPur) return true;
+  if (estManager) {
+    const deptIds = user?.dept_ids;
+    if (!deptIds || deptIds.length === 0) return true; // dept_ids absent → déléguer au backend
+    return t.dept_id != null && deptIds.map(Number).includes(Number(t.dept_id));
+  }
+  return estAssigne(t);
+}, [estAdminPur, estDirecteur, estManager, estAssigne, user]);
+
+const peutDeposer = useCallback((taskId, dest, src) => {
+  const all  = [...tasks.todo, ...tasks.inprogress, ...tasks.done];
+  const task = all.find(t => t.id === taskId);
+  if (!task || estDirecteur) return false;
+  if (estAdminPur) return true;
+  if (estManager) {
+    const deptIds = user?.dept_ids;
+    if (!deptIds || deptIds.length === 0) return true;
+    return task.dept_id != null && deptIds.map(Number).includes(Number(task.dept_id));
+  }
+  if (!estAssigne(task)) return false;
+  return COL_ORDER[dest] > COL_ORDER[src];
+}, [tasks, estAdminPur, estDirecteur, estManager, estAssigne, user]);
+  const peutVoir = useCallback(t => {
+    return estAdminPur || estDirecteur || estManager || estSuperviseur || estAssigne(t);
   }, [estAdminPur, estDirecteur, estManager, estSuperviseur, estAssigne]);
 
-  const insights  = useInsights(tasks);
+  const insights = useInsights(tasks);
 
   const tabCounts = useMemo(() => {
     const all = [...tasks.todo, ...tasks.inprogress, ...tasks.done];
@@ -999,23 +1027,21 @@ export default function TasksPage() {
   const totalFiltered = filteredTasks.todo.length + filteredTasks.inprogress.length + filteredTasks.done.length;
   const hasFilters    = !!query || !!priorityFilter || activeTab !== 'all';
 
-  /* ── API helpers ── */
   const patchColonne = useCallback((taskId, destCol) => {
     const token    = localStorage.getItem('xamio_token');
     const isAction = taskId.startsWith('action_');
     const id       = taskId.replace(isAction ? 'action_' : 'tache_', '');
     const url      = isAction ? `/api/actions/${id}/statut` : `/api/taches/${id}/colonne`;
     const body     = isAction
-      ? { action_statut: COL_TO_STATUT[destCol] } // ✅ todo/inprogress/done
-      : { tache_colonne: COL_TO_STATUT[destCol] }; // ✅ todo/inprogress/done
+      ? { action_statut: COL_TO_STATUT[destCol] }
+      : { tache_colonne: COL_TO_STATUT[destCol] };
     return fetch(url, {
       method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+      headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('xamio_token')}` },
       body: JSON.stringify(body),
     });
   }, []);
 
-  /* ── Optimistic move ── */
   const moveOptimistic = useCallback((taskId, src, dest) => {
     prevRef.current = JSON.parse(JSON.stringify(tasks));
     setTasks(prev => {
@@ -1033,7 +1059,6 @@ export default function TasksPage() {
     if (prevRef.current) { setTasks(prevRef.current); prevRef.current = null; }
   }, []);
 
-  /* ── Drag & Drop ── */
   const handleDragStart = (e, task, colKey) => {
     if (!peutDragguer(task)) { e.preventDefault(); return; }
     setDragInfo({ id:task.id, sCol:colKey });
@@ -1059,7 +1084,6 @@ export default function TasksPage() {
     );
   };
 
-  /* ── Mobile move ── */
   const handleMoveCard = (task, currentCol, dir) => {
     const cols = ['todo','inprogress','done'];
     const dest = cols[cols.indexOf(currentCol) + dir];
@@ -1071,7 +1095,6 @@ export default function TasksPage() {
     addToast(<span>Déplacé vers <strong>{COL_CFG[dest].label}</strong></span>, 'success');
   };
 
-  /* ── Move action from modal ── */
   const handleMoveAction = async destCol => {
     if (!editingTask || editingTask.source !== 'action') return;
     const { id:taskId, colKey:srcCol } = editingTask;
@@ -1088,21 +1111,19 @@ export default function TasksPage() {
     } catch { rollback(); addToast('Erreur.','error'); }
   };
 
-  /* ── Save task ── */
   const handleSave = async () => {
     if (!editingTask || editingTask.source === 'action') { setIsEditOpen(false); return; }
     const token = localStorage.getItem('xamio_token');
     const id    = editingTask.id.replace('tache_', '');
     try {
-      const res = await fetch(`/api/taches/${id}`, { // ✅ URL correcte
+      const res = await fetch(`/api/taches/${id}`, {
         method:'PUT',
         headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
         body: JSON.stringify({
           tache_titre:    editingTask.title,
-          tache_priorite: editingTask.priority,      // ✅ high/medium/low
+          tache_priorite: editingTask.priority,
           tache_echeance: editingTask.due || null,
           description:    editingTask.description || null,
-          // ✅ tache_colonne retiré — géré par patchColonne/updateColonne
         }),
       });
       if (!res.ok) throw new Error();
@@ -1120,9 +1141,6 @@ export default function TasksPage() {
     }
   };
 
-  /* ════════════════════════════════════════════
-     RENDER
-  ════════════════════════════════════════════ */
   return (
     <div className="xm-tasks xm-enter" style={{ padding:'0 2px', maxWidth:'100%', overflowX:'hidden' }}>
 
@@ -1134,12 +1152,8 @@ export default function TasksPage() {
           </h1>
           <p style={{ fontSize:13, color:T.t3, fontFamily:'var(--font-sans)', display:'flex', alignItems:'center', gap:8 }}>
             {insights.total} tâche{insights.total !== 1 ? 's' : ''}
-            {insights.overdue > 0 && (
-              <span style={{ color:'#E24B4A', fontWeight:600 }}>· {insights.overdue} en retard</span>
-            )}
-            {insights.dueSoon > 0 && (
-              <span style={{ color:'#BA7517', fontWeight:600 }}>· {insights.dueSoon} bientôt</span>
-            )}
+            {insights.overdue > 0 && <span style={{ color:'#E24B4A', fontWeight:600 }}>· {insights.overdue} en retard</span>}
+            {insights.dueSoon > 0 && <span style={{ color:'#BA7517', fontWeight:600 }}>· {insights.dueSoon} bientôt</span>}
           </p>
         </div>
         {(estAdminPur || estManager) && (
@@ -1149,20 +1163,12 @@ export default function TasksPage() {
         )}
       </div>
 
-      {/* ── Stats ── */}
       <StatsRow insights={insights} />
-
-      {/* ── Tabs ── */}
       <TabBar active={activeTab} setActive={setActiveTab} counts={tabCounts} />
 
-      {/* ── Filters + View switcher ── */}
       <div style={{ display:'flex', gap:10, alignItems:'flex-start', marginBottom:20, flexWrap:'wrap' }}>
         <div style={{ flex:1 }}>
-          <FiltersBar
-            query={query} setQuery={setQuery}
-            priorityFilter={priorityFilter} setPriority={setPriority}
-            activeCount={totalFiltered}
-          />
+          <FiltersBar query={query} setQuery={setQuery} priorityFilter={priorityFilter} setPriority={setPriority} activeCount={totalFiltered} />
         </div>
         <ViewSwitcher view={view} setView={setView} />
       </div>
@@ -1197,10 +1203,7 @@ export default function TasksPage() {
                     <h3 style={{ fontSize:11, fontWeight:800, textTransform:'uppercase', letterSpacing:'.06em', margin:0, color:T.t2 }}>
                       {COL_CFG[colKey].label}
                     </h3>
-                    <span style={{
-                      fontSize:11, fontWeight:700, padding:'0 7px', borderRadius:T.r20,
-                      background:T.bg3, color:T.t3, fontFamily:'var(--font-mono)',
-                    }}>
+                    <span style={{ fontSize:11, fontWeight:700, padding:'0 7px', borderRadius:T.r20, background:T.bg3, color:T.t3, fontFamily:'var(--font-mono)' }}>
                       {filteredTasks[colKey].length}
                     </span>
                   </div>
@@ -1213,7 +1216,6 @@ export default function TasksPage() {
                       task={task}
                       colKey={colKey}
                       index={i}
-                      canModify={peutModifier(task)}
                       canDrag={peutDragguer(task)}
                       isMobile={isMobile}
                       draggingId={draggingId}
@@ -1223,8 +1225,10 @@ export default function TasksPage() {
                       onDragEnd={handleDragEnd}
                       onDragOver={e => e.preventDefault()}
                       onClick={() => {
-                        if (peutModifier(task)) { setEditingTask({ ...task, colKey }); setIsEditOpen(true); }
-                        else addToast("Accès non autorisé.", 'error');
+                        if (peutVoir(task)) {
+                          setEditingTask({ ...task, colKey });
+                          setIsEditOpen(true);
+                        }
                       }}
                       onMoveLeft={e  => { e.stopPropagation(); handleMoveCard(task, colKey, -1); }}
                       onMoveRight={e => { e.stopPropagation(); handleMoveCard(task, colKey,  1); }}
@@ -1232,11 +1236,7 @@ export default function TasksPage() {
                   ))}
 
                   {!loading && filteredTasks[colKey].length === 0 && (
-                    <div style={{
-                      textAlign:'center', padding:'32px 16px',
-                      border:`2px dashed ${T.bd0}`, borderRadius:12,
-                      color:T.t3, fontSize:12,
-                    }}>
+                    <div style={{ textAlign:'center', padding:'32px 16px', border:`2px dashed ${T.bd0}`, borderRadius:12, color:T.t3, fontSize:12 }}>
                       Aucune tâche
                     </div>
                   )}
@@ -1270,18 +1270,19 @@ export default function TasksPage() {
                   list.map(t => {
                     const due      = getDueStatus(t.due, col === 'done');
                     const priority = PRIORITIES.find(p => p.val === t.priority);
-                    const canMod   = peutModifier(t);
+                    const canVoir  = peutVoir(t);
                     return (
                       <tr
                         key={t.id}
-                        onClick={() => { if (canMod) { setEditingTask({ ...t, colKey:col }); setIsEditOpen(true); } }}
+                        onClick={() => {
+                          if (canVoir) { setEditingTask({ ...t, colKey:col }); setIsEditOpen(true); }
+                        }}
                         style={{
                           borderTop:`1px solid ${T.bd0}`,
-                          cursor: canMod ? 'pointer' : 'default',
-                          opacity: canMod ? 1 : .6,
+                          cursor: canVoir ? 'pointer' : 'default',
                           transition:'background .12s',
                         }}
-                        onMouseEnter={e => { if (canMod) e.currentTarget.style.background = T.bg2; }}
+                        onMouseEnter={e => { if (canVoir) e.currentTarget.style.background = T.bg2; }}
                         onMouseLeave={e => { e.currentTarget.style.background = ''; }}
                       >
                         <td style={{ padding:14, fontWeight:600, color:T.t1 }}>{t.title}</td>
@@ -1336,7 +1337,6 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* ── Modal édition ── */}
       {ReactDOM.createPortal(
         <EditModal
           open={isEditOpen}
@@ -1346,6 +1346,7 @@ export default function TasksPage() {
           estManager={estManager}
           estDirecteur={estDirecteur}
           user={user}
+          peutModifier={peutModifier}   
           onClose={() => setIsEditOpen(false)}
           onSave={handleSave}
           onMoveAction={handleMoveAction}
@@ -1354,7 +1355,6 @@ export default function TasksPage() {
         document.body
       )}
 
-      {/* ── Modal création ── */}
       {ReactDOM.createPortal(
         <CreateTacheModal
           open={isCreateOpen}

@@ -1,878 +1,1424 @@
-import React, { useState, useRef } from 'react';
-import { SectionHeader, Badge, SearchBar, Modal, Button } from '../../../components/ui/index';
-import Icon from '../../../components/ui/Icon';
-import { useNotif } from '../../../context/NotifContext';
+/**
+ * Xamio — DocumentsPage v4.2
+ *
+ * CORRECTIFS vs v4.1 :
+ * ─────────────────────────────────────────────────────────────────
+ *  • CRS3Preview : cache module-level des URLs signées S3 (TTL 13 min)
+ *    → réouverture d'un CR avec fichier instantanée
+ *  • PreviewModal : pattern keep-alive (lastPreview) → pas de remontage
+ *    complet à chaque fermeture/ouverture, CRS3Preview conserve son état
+ *  • openPreview / closePreview remplacent setPreviewDoc directement
+ * ─────────────────────────────────────────────────────────────────
+ */
+
+import React, {
+  useState, useMemo, useRef, useEffect,
+  useCallback, memo, createContext, useContext,
+  useId,
+} from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useNotif }    from '../../../context/NotifContext';
 import { documents as initialDocs } from '../../../data/mockData';
+import { useMeetingDocuments }      from '../hooks/useMeetingDocuments';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Constantes
-// ─────────────────────────────────────────────────────────────────────────────
-const TYPE_ICONS  = { pdf: '📄', xlsx: '📊', fig: '🎨', docx: '📝', png: '🖼️', default: '📁' };
-const TYPE_COLORS = { pdf: 'red', xlsx: 'green', fig: 'purple', docx: 'blue', png: 'blue' };
+/* ════════════════════════════════════════════════════════════════
+   GLOBAL CSS  –  Singleton guard
+   ════════════════════════════════════════════════════════════════ */
+const CSS_ID = 'xd-global-style-v4';
+const GLOBAL_CSS = `
+  *, *::before, *::after { box-sizing: border-box; }
+  .xd-page { font-family: var(--font-sans); }
+  .xd-grid {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  }
+  @media (max-width: 700px) {
+    .xd-grid        { grid-template-columns: 1fr !important; }
+    .xd-filters-row { flex-direction: column; align-items: stretch !important; }
+    .xd-stats-row   { grid-template-columns: repeat(2, 1fr) !important; }
+    .xd-header-row  { flex-direction: column; align-items: flex-start !important; }
+  }
+  @keyframes xd-fade-up  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+  @keyframes xd-bar      { from{transform:scaleX(0)}                   to{transform:scaleX(1)} }
+  @keyframes xd-menu-pop { from{opacity:0;transform:scale(.96) translateY(-4px)} to{opacity:1;transform:none} }
+  @keyframes xd-modal-bg { from{opacity:0} to{opacity:1} }
+  @keyframes xd-modal-box{ from{opacity:0;transform:translateY(14px) scale(.97)} to{opacity:1;transform:none} }
+  @keyframes xd-pulse    { 0%,100%{opacity:.4} 50%{opacity:.9} }
+  .xd-card-enter { animation: xd-fade-up .28s cubic-bezier(.22,1,.36,1) both; }
+  .xd-page-enter { animation: xd-fade-up .22s cubic-bezier(.22,1,.36,1); }
+  .xd-doc-card   { transition: border-color .18s, box-shadow .18s, background .18s; cursor: pointer; }
+  .xd-doc-card:hover {
+    border-color: var(--color-border-strong) !important;
+    box-shadow: var(--shadow-dropdown) !important;
+    background: var(--color-background-tertiary) !important;
+  }
+  .xd-doc-card:focus-visible { outline: 2px solid #E8500A; outline-offset: 2px; }
+  .xd-scrollbar::-webkit-scrollbar          { width: 5px; height: 5px; }
+  .xd-scrollbar::-webkit-scrollbar-track    { background: transparent; }
+  .xd-scrollbar::-webkit-scrollbar-thumb    { background: var(--color-background-hover); border-radius: 99px; }
+  .xd-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+  .xd-skeleton { animation: xd-pulse 1.5s ease-in-out infinite; background: var(--color-background-tertiary); border-radius: 4px; }
+  .xd-sr-only  { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .xd-meeting-badge { transition: background .13s, border-color .13s; }
+  .xd-meeting-badge:hover { background: var(--color-purple-bg, #ede9fe) !important; border-color: var(--color-purple-border, #c4b5fd) !important; }
+`;
 
+function injectGlobalStyle() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById(CSS_ID)) return;
+  const s = document.createElement('style');
+  s.id = CSS_ID;
+  s.textContent = GLOBAL_CSS;
+  document.head.appendChild(s);
+}
+injectGlobalStyle();
+
+/* ════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ════════════════════════════════════════════════════════════════ */
+const T = {
+  bg0: 'transparent',
+  bg1: 'var(--color-background-secondary)',
+  bg2: 'var(--color-background-tertiary)',
+  bg3: 'var(--color-background-elevated)',
+  bd0: 'var(--color-border)',
+  bd1: 'var(--color-border-medium)',
+  bd2: 'var(--color-border-strong)',
+  t1:  'var(--color-text-primary)',
+  t2:  'var(--color-text-secondary)',
+  t3:  'var(--color-text-muted)',
+  acc:  '#E8500A',
+  acc2: '#C94108',
+  accm: 'rgba(232,80,10,.08)',
+  accb: 'rgba(232,80,10,.22)',
+  pur:  'var(--color-purple, #7c3aed)',
+  purb: 'var(--color-purple-bg, #f5f3ff)',
+  purr: 'var(--color-purple-border, #c4b5fd)',
+  r6:  'var(--radius-medium)',
+  r8:  'var(--radius-large)',
+  r10: '10px',
+  r12: 'var(--radius-xlarge)',
+  r14: '14px',
+  r16: '16px',
+  r20: '20px',
+  shadowDropdown: 'var(--shadow-dropdown)',
+  shadowModal:    'var(--shadow-modal)',
+  fileColors: {
+    pdf:  { fg: '#b91c1c', bg: 'rgba(185,28,28,.08)',  border: 'rgba(185,28,28,.2)'  },
+    docx: { fg: '#1d4ed8', bg: 'rgba(29,78,216,.08)',  border: 'rgba(29,78,216,.2)'  },
+    xlsx: { fg: '#15803d', bg: 'rgba(21,128,61,.08)',  border: 'rgba(21,128,61,.2)'  },
+    png:  { fg: '#7c3aed', bg: 'rgba(124,58,237,.08)', border: 'rgba(124,58,237,.2)' },
+    fig:  { fg: '#a21caf', bg: 'rgba(162,28,175,.08)', border: 'rgba(162,28,175,.2)' },
+  },
+};
+
+/* ════════════════════════════════════════════════════════════════
+   CONSTANTES
+   ════════════════════════════════════════════════════════════════ */
 const CATEGORIES = ['Commercial', 'Technique', 'Stratégie', 'Design', 'Juridique', 'Finance', 'Support'];
 
-const ACCEPTED_MIME = [
+const ACCEPTED_MIME = new Set([
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'image/png',
-];
+]);
+
+const EXT_MIME = {
+  pdf:  'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  png:  'image/png',
+};
+
 const MAX_SIZE_MB      = 50;
 const TOTAL_STORAGE_MB = 1024;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Utilitaires
-// ─────────────────────────────────────────────────────────────────────────────
-function parseMB(sizeStr) {
-  const n = parseFloat(sizeStr);
-  if (isNaN(n)) return 0;
-  return sizeStr.includes('MB') ? n : n / 1024;
+const TYPE_LABELS = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel', png: 'Image', fig: 'Figma', default: 'Fichier' };
+
+const CAT_FILTERS = [
+  { v: 'all', l: 'Toutes catégories' },
+  ...CATEGORIES.map(c => ({ v: c, l: c })),
+  { v: 'Comptes-rendus', l: 'Comptes-rendus' },
+];
+const ACCESS_FILTERS = [
+  { v: 'all',     l: 'Tous les accès' },
+  { v: 'partage', l: 'Partagés'       },
+  { v: 'prive',   l: 'Privés'         },
+];
+const TYPE_FILTERS = [
+  { v: 'all',  l: 'Tous les types' },
+  { v: 'pdf',  l: 'PDF'            },
+  { v: 'docx', l: 'Word'           },
+  { v: 'xlsx', l: 'Excel'          },
+  { v: 'png',  l: 'Images'         },
+];
+const SOURCE_FILTERS = [
+  { v: 'all',     l: 'Toutes origines' },
+  { v: 'library', l: 'Bibliothèque'    },
+  { v: 'meeting', l: 'Comptes-rendus'  },
+];
+
+const VIS_OPTIONS = [
+  { id: 'prive',   label: 'Privé',   sub: 'Moi uniquement', iconKey: 'lock',  danger: true  },
+  { id: 'partage', label: 'Partagé', sub: "Toute l'équipe", iconKey: 'share', danger: false },
+];
+
+/* ════════════════════════════════════════════════════════════════
+   DOCUMENTS CONTEXT
+   ════════════════════════════════════════════════════════════════ */
+const DocumentsContext = createContext(null);
+
+export function DocumentsProvider({ children }) {
+  const [docs, setDocs] = useState(() =>
+    initialDocs.map(d => ({ source: 'library', ...d }))
+  );
+
+  const addDocument    = useCallback((doc) =>
+    setDocs(p => p.some(d => d.id === doc.id) ? p : [doc, ...p]),
+  []);
+  const removeDocument = useCallback((id)  => setDocs(p => p.filter(d => d.id !== id)), []);
+  const toggleShare    = useCallback((id)  => setDocs(p =>
+    p.map(d => d.id === id ? { ...d, shared: !d.shared } : d)
+  ), []);
+
+  const value = useMemo(
+    () => ({ docs, addDocument, removeDocument, toggleShare }),
+    [docs, addDocument, removeDocument, toggleShare],
+  );
+
+  return <DocumentsContext.Provider value={value}>{children}</DocumentsContext.Provider>;
 }
 
-function formatSize(bytes) {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+export function useDocumentsCtx() {
+  const ctx = useContext(DocumentsContext);
+
+  const [localDocs, setLocalDocs] = useState(() =>
+    initialDocs.map(d => ({ source: 'library', ...d }))
+  );
+  const localAdd    = useCallback((doc) =>
+    setLocalDocs(p => p.some(d => d.id === doc.id) ? p : [doc, ...p]),
+  []);
+  const localRemove = useCallback((id)  => setLocalDocs(p => p.filter(d => d.id !== id)), []);
+  const localToggle = useCallback((id)  => setLocalDocs(p =>
+    p.map(d => d.id === id ? { ...d, shared: !d.shared } : d)
+  ), []);
+
+  const fallback = useMemo(() => ({
+    docs:           localDocs,
+    addDocument:    localAdd,
+    removeDocument: localRemove,
+    toggleShare:    localToggle,
+  }), [localDocs, localAdd, localRemove, localToggle]);
+
+  return ctx ?? fallback;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   UTILITAIRES PURS
+   ════════════════════════════════════════════════════════════════ */
+const parseMB      = (s = '') => { const n = parseFloat(s); return isNaN(n) ? 0 : (s.includes('MB') ? n : n / 1024); };
+const formatSize   = (b) => b < 1_048_576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1_048_576).toFixed(1)} MB`;
+const getExtension = (f = '') => f.split('.').pop()?.toLowerCase() || 'default';
+const initials     = (n = '') => n.split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+const hashColor    = (s = '') => {
+  let h = 0;
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
+  return ['#2E70D9','#E07B2A','#3D9A6F','#7B60C8','#B0443A','#2A8FA8','#C85070','#4A8C4A'][Math.abs(h) % 8];
+};
 
 function validateFile(file) {
-  if (!ACCEPTED_MIME.includes(file.type))
-    return 'Format non supporté. Utilisez PDF, DOCX, XLSX ou PNG.';
-  if (file.size > MAX_SIZE_MB * 1024 * 1024)
-    return `Fichier trop lourd (max ${MAX_SIZE_MB} MB).`;
+  const ext  = getExtension(file.name);
+  const mime = file.type || EXT_MIME[ext] || '';
+  if (!ACCEPTED_MIME.has(mime)) return 'Format non supporté. Utilisez PDF, DOCX, XLSX ou PNG.';
+  if (file.size > MAX_SIZE_MB * 1_048_576) return `Fichier trop lourd (max ${MAX_SIZE_MB} MB).`;
   return null;
 }
 
-function getExtension(filename) {
-  return filename?.split('.').pop()?.toLowerCase() || 'default';
+/* ════════════════════════════════════════════════════════════════
+   HOOKS UTILITAIRES
+   ════════════════════════════════════════════════════════════════ */
+function useOutsideClick(ref, cb) {
+  useEffect(() => {
+    const fn = (e) => { if (ref.current && !ref.current.contains(e.target)) cb(); };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, [ref, cb]);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles partagés
-// ─────────────────────────────────────────────────────────────────────────────
-const inputStyle = {
-  width: '100%',
-  padding: '8px 10px',
-  fontSize: 13,
-  border: '0.5px solid var(--color-border)',
-  borderRadius: 8,
-  background: 'var(--color-background-primary)',
-  color: 'var(--color-text)',
-  outline: 'none',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
-};
-
-const labelStyle = {
-  display: 'block',
-  fontSize: 12,
-  fontWeight: 500,
-  color: 'var(--color-text-muted)',
-  marginBottom: 5,
-};
-
-const errorStyle = {
-  fontSize: 11,
-  color: 'var(--color-error, #dc2626)',
-  marginTop: 4,
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Composant UploadModal
-// ─────────────────────────────────────────────────────────────────────────────
-function UploadModal({ open, onClose, onUpload }) {
-  const fileRef = useRef(null);
-
-  const [file,        setFile]     = useState(null);
-  const [nom,         setNom]      = useState('');
-  const [categorie,   setCat]      = useState('');
-  const [description, setDesc]     = useState('');
-  const [visibilite,  setVis]      = useState('prive');
-  const [dragging,    setDragging] = useState(false);
-  const [errors,      setErrors]   = useState({});
-  const [loading,     setLoading]  = useState(false);
-
-  function handleClose() {
-    setFile(null); setNom(''); setCat('');
-    setDesc(''); setVis('prive'); setErrors({}); setLoading(false);
-    onClose();
-  }
-
-  function pickFile(f) {
-    const err = validateFile(f);
-    if (err) { setErrors(e => ({ ...e, file: err })); return; }
-    setFile(f);
-    if (!nom) setNom(f.name.replace(/\.[^.]+$/, ''));
-    setErrors(e => ({ ...e, file: null }));
-  }
-
-  function onDrop(e) {
-    e.preventDefault();
-    setDragging(false);
-    const f = e.dataTransfer.files[0];
-    if (f) pickFile(f);
-  }
-
-  function validate() {
-    const errs = {};
-    if (!file)      errs.file      = 'Veuillez sélectionner un fichier.';
-    if (!categorie) errs.categorie = 'La catégorie est obligatoire.';
-    return errs;
-  }
-
-  async function handleSubmit() {
-    const errs = validate();
-    if (Object.keys(errs).length) { setErrors(errs); return; }
-
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file',        file);
-      formData.append('nom',         nom || file.name);
-      formData.append('categorie',   categorie);
-      formData.append('description', description);
-      formData.append('visibilite',  visibilite);
-      // Passe le fichier brut pour la prévisualisation PNG
-      formData._rawFile = file;
-
-      await onUpload(formData);
-      handleClose();
-    } catch (err) {
-      setErrors({ submit: err?.message || "Erreur lors de l'upload." });
-    } finally {
-      setLoading(false);
+const scriptCache = new Map();
+function useScript(src) {
+  const [state, setState] = useState(() => ({
+    loaded: src ? !!window._xdScriptLoaded?.[src] : false,
+    error: null,
+  }));
+  useEffect(() => {
+    if (!src) return;
+    if (window._xdScriptLoaded?.[src]) { setState({ loaded: true, error: null }); return; }
+    let promise = scriptCache.get(src);
+    if (!promise) {
+      promise = new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = () => { window._xdScriptLoaded = { ...window._xdScriptLoaded, [src]: true }; res(); }; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+      scriptCache.set(src, promise);
     }
-  }
+    let cancelled = false;
+    promise
+      .then(() => { if (!cancelled) setState({ loaded: true, error: null }); })
+      .catch((e) => { if (!cancelled) setState({ loaded: false, error: e }); scriptCache.delete(src); });
+    return () => { cancelled = true; };
+  }, [src]);
+  return state;
+}
 
-  const visOptions = [
-    { id: 'prive',   label: 'Privé',   sub: 'Moi uniquement', icon: 'lock'  },
-    { id: 'partage', label: 'Partagé', sub: "Toute l'équipe", icon: 'share' },
-  ];
+/* ════════════════════════════════════════════════════════════════
+   HOOK FILTRES
+   ════════════════════════════════════════════════════════════════ */
+function useDocFilters(docs) {
+  const [query,        setQuery]       = useState('');
+  const [catFilter,    setCatFilter]   = useState('all');
+  const [accessFilter, setAccessFilter]= useState('all');
+  const [typeFilter,   setTypeFilter]  = useState('all');
+  const [sourceFilter, setSourceFilter]= useState('all');
 
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return docs.filter(d => {
+      if (q && !d.name.toLowerCase().includes(q) && !d.author.toLowerCase().includes(q)) return false;
+      if (catFilter    !== 'all' && d.category !== catFilter) return false;
+      if (accessFilter !== 'all' && (accessFilter === 'partage' ? !d.shared : d.shared)) return false;
+      if (typeFilter   !== 'all' && d.type      !== typeFilter) return false;
+      if (sourceFilter !== 'all' && (d.source ?? 'library')   !== sourceFilter) return false;
+      return true;
+    });
+  }, [docs, query, catFilter, accessFilter, typeFilter, sourceFilter]);
+
+  const resetFilters = useCallback(() => {
+    setQuery(''); setCatFilter('all'); setAccessFilter('all');
+    setTypeFilter('all'); setSourceFilter('all');
+  }, []);
+
+  const hasActiveFilters =
+    query !== '' || catFilter !== 'all' || accessFilter !== 'all' ||
+    typeFilter !== 'all' || sourceFilter !== 'all';
+
+  return {
+    query, setQuery, catFilter, setCatFilter,
+    accessFilter, setAccessFilter, typeFilter, setTypeFilter,
+    sourceFilter, setSourceFilter, filtered, resetFilters, hasActiveFilters,
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ICÔNES SVG
+   ════════════════════════════════════════════════════════════════ */
+const IcPlus     = memo(() => <svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>);
+const IcDots     = memo(() => <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="3" cy="8" r="1.4" fill="currentColor"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="13" cy="8" r="1.4" fill="currentColor"/></svg>);
+const IcClose    = memo(() => <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>);
+const IcSearch   = memo(() => <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>);
+const IcCloud    = memo(() => <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M12.5 9A3 3 0 009 6.1V6a3 3 0 00-6 0v.5A2.5 2.5 0 003 11h9.5a2 2 0 000-4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>);
+const IcDownload = memo(() => <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>);
+const IcShare    = memo(() => <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="12" cy="3" r="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="12" cy="13" r="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="4" cy="8" r="2" stroke="currentColor" strokeWidth="1.4"/><path d="M10 4L6 7M10 12L6 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>);
+const IcTrash    = memo(() => <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 5h10M6 5V3h4v2M5 5l.5 8h5L11 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+const IcEye      = memo(() => <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4"/></svg>);
+const IcLock     = memo(() => <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden><rect x="3" y="7.5" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5.5 7.5V5a2.5 2.5 0 015 0v2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>);
+const IcCheck    = memo(() => <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+const IcFilter   = memo(() => <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 3h12M4 8h8M6 13h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>);
+const IcChevDown = memo(() => <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+const IcWarn     = memo(() => <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 2L14.5 13H1.5L8 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 7v3M8 11.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>);
+const IcFilePdf  = memo(() => <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden><rect x="3" y="2" width="14" height="16" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M13 2v4h4" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>);
+const IcFileDocx = memo(() => <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden><rect x="3" y="2" width="14" height="16" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>);
+const IcFileXlsx = memo(() => <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden><rect x="3" y="2" width="14" height="16" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>);
+const IcFileImg  = memo(() => <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="7" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M2 14l4-4 3 3 3-3 4 4" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>);
+const IcFile     = memo(() => <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M5 2h8l4 4v12a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M13 2v4h4" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>);
+const IcMeeting  = memo(() => <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5 1v4M11 1v4M2 7h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>);
+
+const FILE_ICONS = { pdf: IcFilePdf, docx: IcFileDocx, xlsx: IcFileXlsx, png: IcFileImg };
+const FileIcon = memo(function FileIcon({ type }) {
+  const Comp = FILE_ICONS[type] || IcFile;
+  const c = T.fileColors[type] || { fg: T.t3 };
+  return <span style={{ color: c.fg, lineHeight: 0, display: 'inline-flex', flexShrink: 0 }}><Comp /></span>;
+});
+
+/* ════════════════════════════════════════════════════════════════
+   COMPOSANTS ATOMIQUES
+   ════════════════════════════════════════════════════════════════ */
+const IconBtnInner = React.forwardRef(function IconBtn({ children, onClick, active, danger, title, size = 28 }, ref) {
   return (
- <Modal
-  open={open}
-  onClose={handleClose}
-  title="Uploader un document"
-  style={{
-    width: '900px',         // largeur augmentée pour grand écran
-    maxWidth: '95vw',       // responsive sur petits écrans
-    maxHeight: '90vh',      // limite la hauteur de la fenêtre
-    padding: '24px',        // padding intérieur
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center', // centre verticalement
-    overflow: 'hidden',       // empêche overflow du modal
-  }}
->
-  {/* Scroll interne si le contenu dépasse */}
-  <div style={{ 
-    overflowY: 'auto', 
-    paddingRight: 8,   // petit padding pour éviter que le scroll cache le contenu
-    display: 'flex', 
-    flexDirection: 'column', 
-    gap: 16 
-  }}>
-
-    {/* Zone de dépôt */}
-    <div
-      onClick={() => fileRef.current?.click()}
-      onDragOver={e => { e.preventDefault(); setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={onDrop}
+    <button
+      ref={ref}
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      aria-pressed={active}
       style={{
-        border: `2px dashed ${
-          dragging    ? 'var(--color-accent)' :
-          errors.file ? 'var(--color-error, #dc2626)' :
-          'var(--color-accent-border)'}`,
-        borderRadius: 12,
-        padding: '28px 20px',
-        textAlign: 'center',
-        background: dragging ? 'var(--color-accent-bg)' : 'var(--color-surface, var(--color-background-secondary))',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
+        width: size, height: size, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: active ? T.bg3 : 'transparent',
+        border: `1px solid ${active ? T.bd1 : 'transparent'}`,
+        borderRadius: T.r6, cursor: 'pointer', flexShrink: 0,
+        color: active ? T.t1 : T.t3, transition: 'all .13s',
       }}
-    >
-      <input
-        ref={fileRef}
-        type="file"
-        hidden
-        accept=".pdf,.docx,.xlsx,.png"
-        onChange={e => e.target.files[0] && pickFile(e.target.files[0])}
-      />
-      <Icon name="cloud" size={28} color="var(--color-accent)" style={{ margin: '0 auto 8px' }} />
-      {file ? (
-        <>
-          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text)' }}>{file.name}</p>
-          <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 3 }}>{formatSize(file.size)}</p>
-        </>
-      ) : (
-        <>
-          <p style={{ fontSize: 14, color: 'var(--color-accent)', fontWeight: 600 }}>Cliquez ou glissez-déposez</p>
-          <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4 }}>PDF, DOCX, XLSX, PNG — max 50 MB</p>
-        </>
-      )}
-    </div>
-    {errors.file && <p style={errorStyle}>{errors.file}</p>}
+      onMouseEnter={e => { e.currentTarget.style.background = T.bg2; e.currentTarget.style.borderColor = T.bd1; e.currentTarget.style.color = danger ? 'var(--color-danger)' : T.t2; }}
+      onMouseLeave={e => { e.currentTarget.style.background = active ? T.bg3 : 'transparent'; e.currentTarget.style.borderColor = active ? T.bd1 : 'transparent'; e.currentTarget.style.color = active ? T.t1 : T.t3; }}
+    >{children}</button>
+  );
+});
 
-    {/* Nom + Catégorie */}
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-      <div>
-        <label style={labelStyle}>Nom du document</label>
-        <input
-          style={inputStyle}
-          placeholder="ex. Rapport Q1 2026"
-          value={nom}
-          onChange={e => setNom(e.target.value)}
-        />
-      </div>
-      <div>
-        <label style={labelStyle}>
-          Catégorie <span style={{ color: 'var(--color-error, #dc2626)' }}>*</span>
-        </label>
-        <select
-          style={{
-            ...inputStyle,
-            borderColor: errors.categorie ? 'var(--color-error, #dc2626)' : undefined,
-          }}
-          value={categorie}
-          onChange={e => { setCat(e.target.value); setErrors(er => ({ ...er, categorie: null })); }}
-        >
-          <option value="">— Choisir —</option>
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        {errors.categorie && <p style={errorStyle}>{errors.categorie}</p>}
-      </div>
-    </div>
+const IconBtn = memo(IconBtnInner);
 
-    {/* Description */}
-    <div>
-      <label style={labelStyle}>
-        Description{' '}
-        <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(optionnel)</span>
-      </label>
-      <textarea
-        style={{ ...inputStyle, resize: 'none', height: 60 }}
-        placeholder="Décrivez brièvement le contenu…"
-        value={description}
-        onChange={e => setDesc(e.target.value)}
-        maxLength={200}
-      />
-    </div>
+const Avatar = memo(function Avatar({ name = '', size = 22 }) {
+  const color = hashColor(name);
+  return (
+    <span style={{ width: size, height: size, borderRadius: '50%', background: color + '22', border: `1.5px solid ${color}44`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 700, color, flexShrink: 0, lineHeight: 1 }}>
+      {initials(name)}
+    </span>
+  );
+});
 
-    {/* Visibilité */}
-    <div>
-      <label style={labelStyle}>
-        Visibilité <span style={{ color: 'var(--color-error, #dc2626)' }}>*</span>
-        <span style={{
-          marginLeft: 8, fontSize: 10, fontWeight: 400,
-          background: 'var(--color-error-bg, #fef2f2)',
-          color: 'var(--color-error, #dc2626)',
-          padding: '1px 6px', borderRadius: 20,
-        }}>
-          Privé par défaut
-        </span>
-      </label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        {visOptions.map(opt => {
-          const active    = visibilite === opt.id;
-          const isPrivate = opt.id === 'prive';
-          return (
-            <div
-              key={opt.id}
-              onClick={() => setVis(opt.id)}
-              style={{
-                flex: 1, display: 'flex', alignItems: 'center', gap: 10,
-                border: `0.5px solid ${active
-                  ? isPrivate ? 'var(--color-error, #dc2626)' : 'var(--color-success, #16a34a)'
-                  : 'var(--color-border)'}`,
-                borderRadius: 8, padding: '10px 12px', cursor: 'pointer',
-                background: active
-                  ? isPrivate ? 'var(--color-error-bg, #fef2f2)' : 'var(--color-success-bg, #f0fdf4)'
-                  : 'transparent',
-                transition: 'all 0.15s',
-              }}
-            >
-              <Icon
-                name={opt.icon}
-                size={16}
-                color={active
-                  ? isPrivate ? 'var(--color-error, #dc2626)' : 'var(--color-success, #16a34a)'
-                  : 'var(--color-text-muted)'}
-              />
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text)', margin: 0 }}>{opt.label}</p>
-                <p style={{ fontSize: 11, color: 'var(--color-text-muted)', margin: 0 }}>{opt.sub}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 6 }}>
-        Vous pouvez modifier la visibilité après l'upload.
-      </p>
-    </div>
+const Tag = memo(function Tag({ icon, children, color = T.t3, bg = T.bg3 }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: T.r20, background: bg, color, fontSize: 11, fontWeight: 500, border: `1px solid ${color}22`, whiteSpace: 'nowrap' }}>
+      {icon && <span style={{ lineHeight: 0, opacity: .85 }}>{icon}</span>}
+      {children}
+    </span>
+  );
+});
 
-    {/* Erreur globale */}
-    {errors.submit && (
-      <p style={{ ...errorStyle, textAlign: 'center' }}>{errors.submit}</p>
-    )}
+const TypePill = memo(function TypePill({ type }) {
+  const c = T.fileColors[type] || { fg: T.t3, bg: T.bg2, border: T.bd0 };
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: T.r20, background: c.bg, fontSize: 11, fontWeight: 500, color: c.fg, border: `1px solid ${c.border}`, whiteSpace: 'nowrap' }}>
+      {TYPE_LABELS[type] || 'Fichier'}
+    </span>
+  );
+});
 
-    {/* Actions */}
-    <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
-      <Button variant="ghost" onClick={handleClose} disabled={loading}>
-        Annuler
-      </Button>
-      <Button variant="primary" icon="cloud" onClick={handleSubmit} disabled={loading}>
-        {loading ? 'Upload en cours…' : 'Uploader'}
-      </Button>
-    </div>
+const PrimaryBtn = memo(function PrimaryBtn({ children, onClick, small, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: small ? '6px 14px' : '9px 18px', borderRadius: T.r8, border: 'none', background: T.acc, color: '#FFF', fontSize: small ? 12 : 13, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', transition: 'background .15s, transform .15s, box-shadow .15s', boxShadow: `0 2px 8px ${T.acc}33`, whiteSpace: 'nowrap', opacity: disabled ? .6 : 1 }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = T.acc2; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 4px 20px ${T.acc}55`; } }}
+      onMouseLeave={e => { e.currentTarget.style.background = T.acc; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = `0 2px 8px ${T.acc}33`; }}
+    >{children}</button>
+  );
+});
 
-  </div>
-</Modal>
+const GhostBtn = memo(function GhostBtn({ children, onClick, small, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{ padding: small ? '5px 12px' : '8px 16px', borderRadius: T.r8, border: `1px solid ${T.bd1}`, background: 'transparent', fontSize: small ? 12 : 13, fontWeight: 450, color: T.t2, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', transition: 'all .15s', whiteSpace: 'nowrap', opacity: disabled ? .5 : 1 }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = T.bg2; e.currentTarget.style.color = T.t1; } }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.t2; }}
+    >{children}</button>
+  );
+});
+
+function FormLabel({ children, htmlFor, required, hint }) {
+  return (
+    <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 12, fontWeight: 500, color: T.t2, marginBottom: 5 }}>
+      {children}
+      {required && <span style={{ color: 'var(--color-danger)', marginLeft: 3 }} aria-hidden>*</span>}
+      {hint && <span style={{ color: T.t3, fontWeight: 400, marginLeft: 6, fontSize: 11 }}>{hint}</span>}
+    </label>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Chargement dynamique des librairies CDN (une seule fois)
-// ─────────────────────────────────────────────────────────────────────────────
-function loadScript(src, globalKey) {
-  return new Promise((resolve, reject) => {
-    if (window[globalKey]) { resolve(window[globalKey]); return; }
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      existing.addEventListener('load',  () => resolve(window[globalKey]));
-      existing.addEventListener('error', reject);
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload  = () => resolve(window[globalKey]);
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Hook : convertit un File en contenu prévisualisable
-// ─────────────────────────────────────────────────────────────────────────────
-function useFilePreview(doc) {
-  const [state, setState] = useState({ status: 'idle', content: null, totalPages: 1 });
-  const canvasRef = useRef(null);
-  const pdfRef    = useRef(null); // instance PDF.js courante
-
-  React.useEffect(() => {
-    if (!doc?.rawFile) { setState({ status: 'idle', content: null, totalPages: 1 }); return; }
-
-    setState({ status: 'loading', content: null, totalPages: 1 });
-    const file = doc.rawFile;
-    const type = doc.type;
-
-    // ── PNG ──────────────────────────────────────────────────────────────────
-    if (type === 'png') {
-      const url = URL.createObjectURL(file);
-      setState({ status: 'done', content: { kind: 'image', url }, totalPages: 1 });
-      return () => URL.revokeObjectURL(url);
-    }
-
-    // ── DOCX (mammoth.js) ────────────────────────────────────────────────────
-    if (type === 'docx') {
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', 'mammoth')
-        .then(mammoth => file.arrayBuffer())
-        .then(buf => window.mammoth.convertToHtml({ arrayBuffer: buf }))
-        .then(result => setState({
-          status: 'done',
-          content: { kind: 'html', html: result.value },
-          totalPages: 1,
-        }))
-        .catch(() => setState({ status: 'error', content: null, totalPages: 1 }));
-      return;
-    }
-
-    // ── XLSX (SheetJS) ───────────────────────────────────────────────────────
-    if (type === 'xlsx') {
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'XLSX')
-        .then(() => file.arrayBuffer())
-        .then(buf => {
-          const wb   = window.XLSX.read(buf, { type: 'array' });
-          const ws   = wb.Sheets[wb.SheetNames[0]];
-          const html = window.XLSX.utils.sheet_to_html(ws, { editable: false });
-          setState({ status: 'done', content: { kind: 'html', html }, totalPages: 1 });
-        })
-        .catch(() => setState({ status: 'error', content: null, totalPages: 1 }));
-      return;
-    }
-
-    // ── PDF (PDF.js) ─────────────────────────────────────────────────────────
-    if (type === 'pdf') {
-      let cancelled = false;
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', 'pdfjsLib')
-        .then(() => {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-          return file.arrayBuffer();
-        })
-        .then(buf => window.pdfjsLib.getDocument({ data: buf }).promise)
-        .then(pdf => {
-          if (cancelled) return;
-          pdfRef.current = pdf;
-          setState({ status: 'done', content: { kind: 'pdf' }, totalPages: pdf.numPages });
-        })
-        .catch(() => setState({ status: 'error', content: null, totalPages: 1 }));
-      return () => { cancelled = true; };
-    }
-
-    setState({ status: 'unsupported', content: null, totalPages: 1 });
-  }, [doc?.id]);
-
-  return { state, canvasRef, pdfRef };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Rendu PDF sur canvas
-// ─────────────────────────────────────────────────────────────────────────────
-function PdfCanvas({ pdfRef, page }) {
-  const canvasRef = useRef(null);
-  const renderTaskRef = useRef(null);
-
-  React.useEffect(() => {
-    if (!pdfRef.current || !canvasRef.current) return;
-
-    // Annule le rendu précédent si encore en cours
-    if (renderTaskRef.current) {
-      renderTaskRef.current.cancel();
-      renderTaskRef.current = null;
-    }
-
-    pdfRef.current.getPage(page).then(pdfPage => {
-      const canvas  = canvasRef.current;
-      if (!canvas) return;
-      const ctx     = canvas.getContext('2d');
-      const vp      = pdfPage.getViewport({ scale: 1.4 });
-      canvas.width  = vp.width;
-      canvas.height = vp.height;
-      const task = pdfPage.render({ canvasContext: ctx, viewport: vp });
-      renderTaskRef.current = task;
-      task.promise.catch(err => {
-        if (err?.name !== 'RenderingCancelledException') console.error(err);
-      });
-    });
-  }, [pdfRef, page]);
-
+function Field({ as: As = 'input', id, hasError, ...props }) {
+  const [focused, setFocused] = useState(false);
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ maxWidth: '100%', display: 'block', margin: '0 auto' }}
+    <As id={id} {...props} aria-invalid={hasError || undefined}
+      style={{ width: '100%', background: T.bg3, border: `1px solid ${hasError ? 'var(--color-danger)' : focused ? T.bd2 : T.bd0}`, borderRadius: T.r8, padding: As === 'textarea' ? '9px 13px' : '0 13px', height: As === 'textarea' ? undefined : 36, color: T.t1, fontSize: 13, lineHeight: 1.6, outline: 'none', fontFamily: 'var(--font-sans)', boxSizing: 'border-box', transition: 'border-color .15s, box-shadow .15s', boxShadow: focused ? `0 0 0 3px ${T.accm}` : 'none', caretColor: 'var(--color-warning)', ...props.style }}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
     />
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Composant PreviewModal
-// ─────────────────────────────────────────────────────────────────────────────
-function PreviewModal({ doc, onClose, onDownload, onShare }) {
-  const [page, setPage] = useState(1);
-  const { state, pdfRef } = useFilePreview(doc);
+const DropItem = memo(function DropItem({ label, selected, onClick }) {
+  return (
+    <button onClick={onClick} role="option" aria-selected={selected}
+      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: T.r6, border: 'none', background: 'transparent', color: selected ? T.t1 : T.t2, fontSize: 12.5, fontWeight: selected ? 500 : 400, cursor: 'pointer', fontFamily: 'var(--font-sans)', textAlign: 'left', transition: 'all .1s' }}
+      onMouseEnter={e => { e.currentTarget.style.background = T.bg3; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+    >
+      {label}
+      {selected && <span style={{ color: T.acc, lineHeight: 0 }}><IcCheck /></span>}
+    </button>
+  );
+});
 
-  React.useEffect(() => { setPage(1); }, [doc?.id]);
-
-  if (!doc) return null;
-
-  const { status, content, totalPages } = state;
-  const isPdf = doc.type === 'pdf';
-
-  // ── Zone de contenu ──────────────────────────────────────────────────────
-  const renderContent = () => {
-    if (status === 'loading') {
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: 'var(--color-text-muted)' }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            border: '3px solid var(--color-border)',
-            borderTopColor: 'var(--color-accent)',
-            animation: 'spin 0.7s linear infinite',
-          }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <span style={{ fontSize: 13 }}>Chargement de l'aperçu…</span>
+function Dropdown({ label, options, value, onChange, icon }) {
+  const [open, setOpen] = useState(false);
+  const ref  = useRef(null);
+  const close = useCallback(() => setOpen(false), []);
+  useOutsideClick(ref, close);
+  const current = options.find(o => o.v === value);
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open}
+        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 12px', height: 34, borderRadius: T.r8, border: `1px solid ${open ? T.bd2 : T.bd0}`, background: open ? T.bg2 : T.bg1, color: T.t1, fontSize: 12.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'all .13s', whiteSpace: 'nowrap' }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = T.bd2; e.currentTarget.style.background = T.bg2; }}
+        onMouseLeave={e => { if (!open) { e.currentTarget.style.borderColor = T.bd0; e.currentTarget.style.background = T.bg1; } }}
+      >
+        {icon && <span style={{ color: T.t3, lineHeight: 0 }}>{icon}</span>}
+        {current?.l || label}
+        <span style={{ color: T.t3, lineHeight: 0, marginLeft: 2, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}><IcChevDown /></span>
+      </button>
+      {open && (
+        <div role="listbox" style={{ position: 'absolute', top: 40, left: 0, zIndex: 300, background: T.bg2, border: `1px solid ${T.bd1}`, borderRadius: T.r10, padding: 5, minWidth: 200, boxShadow: T.shadowDropdown, animation: 'xd-menu-pop .14s cubic-bezier(.22,1,.36,1)' }}>
+          {options.map(o => (
+            <DropItem key={o.v} label={o.l} selected={o.v === value} onClick={() => { onChange(o.v); setOpen(false); }} />
+          ))}
         </div>
-      );
-    }
+      )}
+    </div>
+  );
+}
 
-    if (status === 'error') {
-      return (
-        <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
-          <span style={{ fontSize: 40 }}>⚠️</span>
-          <p style={{ fontSize: 13, marginTop: 10 }}>Impossible de charger l'aperçu.</p>
+const ActionItem = memo(function ActionItem({ icon, label, danger, onClick }) {
+  const color = danger ? 'var(--color-danger)' : T.t2;
+  return (
+    <button onClick={onClick}
+      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: T.r6, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, fontWeight: 450, color, fontFamily: 'var(--font-sans)', textAlign: 'left', transition: 'all .1s' }}
+      onMouseEnter={e => { e.currentTarget.style.background = danger ? 'rgba(240,112,112,.07)' : T.bg3; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+    >
+      <span style={{ lineHeight: 0, opacity: .85, flexShrink: 0 }}>{icon}</span>
+      {label}
+    </button>
+  );
+});
+
+const ActiveChip = memo(function ActiveChip({ label, onRemove }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 8px 2px 10px', borderRadius: T.r20, background: T.accm, border: `1px solid ${T.accb}`, fontSize: 11, fontWeight: 500, color: T.acc }}>
+      {label}
+      <button onClick={onRemove} aria-label={`Retirer le filtre ${label}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.acc, lineHeight: 0, padding: 1, opacity: .7 }}
+        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+        onMouseLeave={e => e.currentTarget.style.opacity = '.7'}
+      ><IcClose /></button>
+    </span>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════════
+   MODAL
+   ════════════════════════════════════════════════════════════════ */
+function Modal({ open, onClose, title, width = 520, children }) {
+  const firstFocusRef = useRef(null);
+  useEffect(() => { document.body.style.overflow = open ? 'hidden' : ''; return () => { document.body.style.overflow = ''; }; }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    setTimeout(() => firstFocusRef.current?.focus(), 50);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div role="dialog" aria-modal="true" aria-label={title} onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(6px)', animation: 'xd-modal-bg .16s ease' }}
+    >
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: T.bg1, border: `1px solid ${T.bd1}`, borderRadius: T.r16, width: '100%', maxWidth: width, maxHeight: 'calc(100dvh - 32px)', display: 'flex', flexDirection: 'column', boxShadow: T.shadowModal, animation: 'xd-modal-box .2s cubic-bezier(.22,1,.36,1)' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${T.bd0}`, flexShrink: 0 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: T.t1, margin: 0, fontFamily: 'var(--font-sans)' }}>{title}</h2>
+          <IconBtn ref={firstFocusRef} onClick={onClose} title="Fermer"><IcClose /></IconBtn>
         </div>
-      );
-    }
-
-    if (status === 'done' && content) {
-      // Image PNG
-      if (content.kind === 'image') {
-        return (
-          <img
-            src={content.url}
-            alt={doc.name}
-            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6 }}
-          />
-        );
-      }
-
-      // HTML (DOCX converti par mammoth, ou XLSX converti par SheetJS)
-      if (content.kind === 'html') {
-        return (
-          <div
-            style={{ width: '100%', height: '100%', overflow: 'auto', padding: '16px 20px', boxSizing: 'border-box' }}
-            dangerouslySetInnerHTML={{ __html: content.html }}
-          />
-        );
-      }
-
-      // PDF via canvas
-      if (content.kind === 'pdf') {
-        return (
-          <div style={{ width: '100%', height: '100%', overflow: 'auto', padding: 8 }}>
-            <PdfCanvas pdfRef={pdfRef} page={page} />
-          </div>
-        );
-      }
-    }
-
-    // Fallback : doc sans rawFile (docs mockés)
-    return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', gap: 14, height: '100%', padding: '0 24px', textAlign: 'center',
-      }}>
-        <span style={{ fontSize: 64, lineHeight: 1 }}>{TYPE_ICONS[doc.type] || TYPE_ICONS.default}</span>
-        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text)', margin: '0 0 4px' }}>{doc.name}</p>
-        <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: 0 }}>
-          Aperçu disponible uniquement pour les fichiers uploadés dans cette session.
-        </p>
+        <div className="xd-scrollbar" style={{ padding: 20, overflowY: 'auto', flex: 1 }}>{children}</div>
       </div>
-    );
-  };
+    </div>
+  );
+}
+
+function ModalFooter({ onCancel, onConfirm, cancelLabel = 'Annuler', confirmLabel = 'Confirmer', loading = false }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 20, borderTop: `1px solid ${T.bd0}`, marginTop: 4 }}>
+      <GhostBtn onClick={onCancel} disabled={loading}>{cancelLabel}</GhostBtn>
+      <PrimaryBtn onClick={onConfirm} disabled={loading}>{loading ? 'En cours…' : confirmLabel}</PrimaryBtn>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   STAT CARDS
+   ════════════════════════════════════════════════════════════════ */
+const StatCard = memo(function StatCard({ value, label, accent, pct, sub }) {
+  return (
+    <div style={{ background: T.bg1, border: `1px solid ${T.bd0}`, borderRadius: T.r12, padding: '14px 16px', transition: 'border-color .15s, box-shadow .15s' }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = T.bd1; e.currentTarget.style.boxShadow = T.shadowDropdown; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = T.bd0; e.currentTarget.style.boxShadow = 'none'; }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: 26, fontWeight: 700, color: T.t1, letterSpacing: '-1px', lineHeight: 1 }}>{value}</span>
+        {pct !== undefined && <span style={{ fontSize: 11, color: T.t3, fontFamily: 'var(--font-mono)', marginBottom: 2 }}>{pct}%</span>}
+      </div>
+      {pct !== undefined && (
+        <div style={{ height: 2, background: T.bg3, borderRadius: 99, marginBottom: 8, overflow: 'hidden' }}>
+          <div style={{ height: '100%', background: accent, borderRadius: 99, width: `${pct}%`, transformOrigin: 'left', animation: 'xd-bar .7s cubic-bezier(.22,1,.36,1)' }} />
+        </div>
+      )}
+      <div style={{ fontSize: 11.5, color: T.t3, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5 }}>
+        {pct !== undefined && <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent, flexShrink: 0 }} />}
+        {label}
+      </div>
+      {sub && <div style={{ marginTop: 6 }}>{sub}</div>}
+    </div>
+  );
+});
+
+const StatsHeader = memo(function StatsHeader({ docs, usedMB }) {
+  const total      = docs.length;
+  const shared     = docs.filter(d => d.shared).length;
+  const pctShared  = total > 0 ? Math.round(shared / total * 100) : 0;
+  const crCount    = docs.filter(d => d.source === 'meeting').length;
+  const pctCR      = total > 0 ? Math.round(crCount / total * 100) : 0;
+  const storagePct = Math.min(Math.round(usedMB / TOTAL_STORAGE_MB * 100), 100);
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 10, marginBottom: 24 }}
+      className="xd-stats-row" role="region" aria-label="Statistiques"
+    >
+      <StatCard value={total}       label="Documents"       sub={<span style={{ color: T.t3, fontSize: 11, fontFamily: 'var(--font-mono)' }}>{usedMB.toFixed(1)} MB utilisés</span>} />
+      <StatCard value={shared}      label="Partagés"        accent={T.acc} pct={pctShared}  />
+      <StatCard value={crCount}     label="Comptes-rendus"  accent={T.pur} pct={pctCR}      />
+      <StatCard value={storagePct}  label="Stockage"        accent={storagePct > 80 ? 'var(--color-danger)' : T.acc} pct={storagePct} />
+    </div>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════════
+   FILTERS BAR
+   ════════════════════════════════════════════════════════════════ */
+function FiltersBar({ query, setQuery, catFilter, setCatFilter, accessFilter, setAccessFilter, typeFilter, setTypeFilter, sourceFilter, setSourceFilter, resetFilters, hasActiveFilters, activeCount }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div className="xd-filters-row" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }} role="search">
+        <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 0 }}>
+          <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: T.t3, pointerEvents: 'none', lineHeight: 0 }} aria-hidden><IcSearch /></span>
+          <input value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="Rechercher un document, un auteur…" aria-label="Rechercher des documents"
+            style={{ width: '100%', background: T.bg1, border: `1px solid ${T.bd0}`, borderRadius: T.r8, padding: '0 34px 0 35px', height: 34, color: T.t1, fontSize: 12.5, outline: 'none', fontFamily: 'var(--font-sans)', boxSizing: 'border-box', transition: 'border-color .13s, box-shadow .13s', caretColor: 'var(--color-warning)' }}
+            onFocus={e => { e.target.style.borderColor = T.bd2; e.target.style.boxShadow = `0 0 0 3px ${T.accm}`; }}
+            onBlur={e => { e.target.style.borderColor = T.bd0; e.target.style.boxShadow = 'none'; }}
+          />
+          {query && (
+            <button onClick={() => setQuery('')} aria-label="Effacer la recherche" style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: T.t3, lineHeight: 0, padding: 2 }}>
+              <IcClose />
+            </button>
+          )}
+        </div>
+        <Dropdown label="Origine"   icon={<IcMeeting />} options={SOURCE_FILTERS} value={sourceFilter} onChange={setSourceFilter} />
+        <Dropdown label="Catégorie" icon={<IcFilter />}  options={CAT_FILTERS}    value={catFilter}    onChange={setCatFilter}    />
+        <Dropdown label="Accès"     icon={<IcLock />}    options={ACCESS_FILTERS} value={accessFilter} onChange={setAccessFilter}  />
+        <Dropdown label="Type"      icon={<IcFile />}    options={TYPE_FILTERS}   value={typeFilter}   onChange={setTypeFilter}   />
+        {hasActiveFilters && (
+          <button onClick={resetFilters} aria-label="Réinitialiser tous les filtres"
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 10px', height: 34, borderRadius: T.r8, border: `1px solid ${T.bd0}`, background: 'transparent', color: T.t3, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'all .13s', whiteSpace: 'nowrap' }}
+            onMouseEnter={e => { e.currentTarget.style.color = T.t1; e.currentTarget.style.borderColor = T.bd1; }}
+            onMouseLeave={e => { e.currentTarget.style.color = T.t3; e.currentTarget.style.borderColor = T.bd0; }}
+          ><IcClose /> Réinitialiser</button>
+        )}
+      </div>
+      {hasActiveFilters && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }} role="status" aria-live="polite">
+          {sourceFilter !== 'all' && <ActiveChip label={SOURCE_FILTERS.find(f => f.v === sourceFilter)?.l}  onRemove={() => setSourceFilter('all')} />}
+          {catFilter    !== 'all' && <ActiveChip label={CAT_FILTERS.find(f => f.v === catFilter)?.l}        onRemove={() => setCatFilter('all')}    />}
+          {accessFilter !== 'all' && <ActiveChip label={ACCESS_FILTERS.find(f => f.v === accessFilter)?.l}  onRemove={() => setAccessFilter('all')} />}
+          {typeFilter   !== 'all' && <ActiveChip label={TYPE_FILTERS.find(f => f.v === typeFilter)?.l}       onRemove={() => setTypeFilter('all')}   />}
+          {query        !== ''    && <ActiveChip label={`"${query}"`}                                         onRemove={() => setQuery('')}           />}
+          <span style={{ fontSize: 11, color: T.t3, marginLeft: 2 }}>{activeCount} résultat{activeCount !== 1 ? 's' : ''}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MEETING BADGE
+   ════════════════════════════════════════════════════════════════ */
+function MeetingBadge({ meetingId, meetingTitle }) {
+  const navigate = useNavigate();
+  return (
+    <button className="xd-meeting-badge"
+      onClick={e => { e.stopPropagation(); navigate(`/meetings/${meetingId}`); }}
+      aria-label={`Voir la réunion : ${meetingTitle || meetingId}`}
+      title={`Réunion : ${meetingTitle || meetingId}`}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: T.r20, background: T.purb, border: `1px solid ${T.purr}`, fontSize: 11, fontWeight: 600, color: T.pur, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'var(--font-sans)' }}
+    >
+      <span style={{ lineHeight: 0 }}><IcMeeting /></span>
+      Compte-rendu
+    </button>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   DOC CARD
+   ════════════════════════════════════════════════════════════════ */
+const DocCard = memo(function DocCard({ doc, onPreview, onDownload, onShare, onDelete, onClick, index }) {
+  const c = T.fileColors[doc.type] || { fg: T.t3, bg: T.bg2, border: T.bd0 };
+  const isMeeting = doc.source === 'meeting';
+  const handlePreview  = useCallback(() => onPreview(doc),  [doc, onPreview]);
+  const handleDownload = useCallback(() => onDownload(doc), [doc, onDownload]);
+  const handleShare    = useCallback(() => onShare(doc),    [doc, onShare]);
+  const handleDelete   = useCallback(() => onDelete(doc),   [doc, onDelete]);
+  return (
+    <article className="xd-doc-card xd-card-enter" role="listitem" tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      aria-label={`Document : ${doc.name}, ${doc.size}, ${doc.date}`}
+      style={{ background: T.bg1, border: `1px solid ${isMeeting ? T.purr : T.bd0}`, borderRadius: T.r12, padding: '15px 16px', position: 'relative', overflow: 'hidden', animationDelay: `${index * 30}ms`, minWidth: 0 }}
+    >
+      {isMeeting && <div style={{ position: 'absolute', left: 0, top: 0, width: 3, height: '100%', background: T.pur, borderRadius: '3px 0 0 3px' }} />}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+          <div style={{ width: 36, height: 36, borderRadius: T.r8, flexShrink: 0, background: c.bg, border: `1px solid ${c.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileIcon type={doc.type} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13.5, fontWeight: 600, color: T.t1, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</p>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', marginTop: 5 }}>
+              <TypePill type={doc.type} />
+              {doc.category && <Tag color={T.acc} bg={T.accm}>{doc.category}</Tag>}
+              {isMeeting
+                ? <MeetingBadge meetingId={doc.meetingId} meetingTitle={doc.meetingTitle} />
+                : doc.shared
+                  ? <Tag icon={<IcShare />} color="var(--color-success)" bg="var(--color-success-bg)">Partagé</Tag>
+                  : <Tag icon={<IcLock />}  color={T.t3} bg={T.bg2}>Privé</Tag>
+              }
+            </div>
+          </div>
+        </div>
+        <div onClick={e => e.stopPropagation()}>
+          <DocActionMenu doc={doc} onPreview={handlePreview} onDownload={handleDownload} onShare={handleShare} onDelete={handleDelete} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 10, fontSize: 11, color: T.t3, flexWrap: 'wrap', alignItems: 'center', fontFamily: 'var(--font-mono)' }}>
+        <span>{doc.size}</span>
+        <span style={{ opacity: .35 }}>·</span>
+        <span style={{ fontFamily: 'var(--font-sans)' }}>{doc.date}</span>
+        <span style={{ opacity: .35 }}>·</span>
+        <span style={{ fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Avatar name={doc.author} size={14} />
+          {doc.author}
+        </span>
+      </div>
+    </article>
+  );
+}, (prev, next) =>
+  prev.doc.id       === next.doc.id     &&
+  prev.doc.shared   === next.doc.shared &&
+  prev.doc.name     === next.doc.name   &&
+  prev.doc.source   === next.doc.source &&
+  prev.doc.category === next.doc.category &&
+  prev.index        === next.index
+);
+
+/* ════════════════════════════════════════════════════════════════
+   ACTION MENU
+   ════════════════════════════════════════════════════════════════ */
+function DocActionMenu({ doc, onPreview, onDownload, onShare, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const ref  = useRef(null);
+  const close = useCallback(() => setOpen(false), []);
+  useOutsideClick(ref, close);
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <IconBtn onClick={() => setOpen(o => !o)} active={open} title="Actions sur le document"><IcDots /></IconBtn>
+      {open && (
+        <div role="menu" style={{ position: 'absolute', right: 0, top: 34, zIndex: 200, background: T.bg2, border: `1px solid ${T.bd1}`, borderRadius: T.r10, padding: 5, minWidth: 200, boxShadow: T.shadowDropdown, animation: 'xd-menu-pop .14s cubic-bezier(.22,1,.36,1)' }}>
+          <ActionItem icon={<IcEye />}      label="Prévisualiser"                                      onClick={() => { close(); onPreview();  }} />
+          <ActionItem icon={<IcDownload />} label="Télécharger"                                        onClick={() => { close(); onDownload(); }} />
+          {doc.source !== 'meeting' && (
+            <ActionItem icon={<IcShare />}  label={doc.shared ? 'Rendre privé' : "Partager l'équipe"} onClick={() => { close(); onShare(); }} />
+          )}
+          <div style={{ height: 1, background: T.bd0, margin: '4px 0' }} />
+          <ActionItem icon={<IcTrash />}    label="Supprimer" danger onClick={() => { close(); onDelete(); }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   UPLOAD MODAL
+   ════════════════════════════════════════════════════════════════ */
+function UploadModal({ open, onClose, onUpload }) {
+  const fileRef = useRef(null);
+  const [file, setFile]           = useState(null);
+  const [nom, setNom]             = useState('');
+  const [categorie, setCat]       = useState('');
+  const [description, setDesc]    = useState('');
+  const [visibilite, setVis]      = useState('prive');
+  const [dragging, setDragging]   = useState(false);
+  const [errors, setErrors]       = useState({});
+  const [loading, setLoading]     = useState(false);
+  const nomId  = useId();
+  const catId  = useId();
+  const descId = useId();
+
+  const reset = useCallback(() => { setFile(null); setNom(''); setCat(''); setDesc(''); setVis('prive'); setErrors({}); setLoading(false); }, []);
+  const handleClose = useCallback(() => { reset(); onClose(); }, [reset, onClose]);
+
+  const pickFile = useCallback((f) => {
+    const err = validateFile(f);
+    if (err) { setErrors(e => ({ ...e, file: err })); return; }
+    setFile(f);
+    setNom(n => n || f.name.replace(/\.[^.]+$/, ''));
+    setErrors(e => ({ ...e, file: null }));
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault(); setDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f) pickFile(f);
+  }, [pickFile]);
+
+  const validate = useCallback(() => {
+    const errs = {};
+    if (!file)      errs.file      = 'Veuillez sélectionner un fichier.';
+    if (!categorie) errs.categorie = 'La catégorie est obligatoire.';
+    return errs;
+  }, [file, categorie]);
+
+  const handleSubmit = useCallback(async () => {
+    const errs = validate();
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setLoading(true);
+    try {
+      await onUpload({ file, nom: nom || file.name, categorie, description, visibilite });
+      handleClose();
+    } catch (err) {
+      setErrors({ submit: err?.message || "Erreur lors de l'upload." });
+    } finally { setLoading(false); }
+  }, [validate, onUpload, file, nom, categorie, description, visibilite, handleClose]);
 
   return (
-<Modal open={!!doc} onClose={onClose} title={`Aperçu — ${doc.name}`}
-  style={{ width: '90vw', maxWidth: '1200px', maxHeight: '95vh' }}>      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-        {/* ── Métadonnées ── */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-          padding: '8px 12px',
-          background: 'var(--color-background-tertiary)',
-          borderRadius: 8, fontSize: 12, color: 'var(--color-text-muted)',
-        }}>
-          <span>👤 {doc.author}</span>
-          <span style={{ opacity: 0.4 }}>·</span>
-          <span>📦 {doc.size}</span>
-          <span style={{ opacity: 0.4 }}>·</span>
-          <span>📅 {doc.date}</span>
-          <span style={{ opacity: 0.4 }}>·</span>
-          <Badge label={doc.category} color={TYPE_COLORS[doc.type] || 'gray'} />
-          <div style={{ marginLeft: 'auto' }}>
-            {doc.shared ? <Badge label="Partagé" color="ochre" /> : <Badge label="Privé" color="muted" />}
+    <Modal open={open} onClose={handleClose} title="Uploader un document" width={640}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div role="button" tabIndex={0}
+          aria-label="Zone de dépôt de fichier. Cliquez ou glissez-déposez un fichier PDF, DOCX, XLSX ou PNG."
+          onClick={() => fileRef.current?.click()}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click(); }}
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          style={{ border: `2px dashed ${dragging ? T.acc : errors.file ? 'var(--color-danger)' : T.accb}`, borderRadius: T.r12, padding: '28px 20px', textAlign: 'center', background: dragging ? T.accm : T.bg2, cursor: 'pointer', transition: 'all .15s' }}
+        >
+          <input ref={fileRef} type="file" hidden accept=".pdf,.docx,.xlsx,.png" onChange={e => e.target.files[0] && pickFile(e.target.files[0])} />
+          <span style={{ lineHeight: 0, display: 'inline-block', color: T.acc, marginBottom: 10 }}><IcCloud /></span>
+          {file ? (
+            <><p style={{ fontSize: 14, fontWeight: 500, color: T.t1, margin: '0 0 3px' }}>{file.name}</p><p style={{ fontSize: 12, color: T.t3, margin: 0 }}>{formatSize(file.size)}</p></>
+          ) : (
+            <><p style={{ fontSize: 14, color: T.acc, fontWeight: 600, margin: '0 0 4px' }}>Cliquez ou glissez-déposez</p><p style={{ fontSize: 12, color: T.t3, margin: 0 }}>PDF, DOCX, XLSX, PNG — max {MAX_SIZE_MB} MB</p></>
+          )}
+        </div>
+        {errors.file && <p role="alert" style={{ fontSize: 11, color: 'var(--color-danger)', marginTop: -10 }}>{errors.file}</p>}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <FormLabel htmlFor={nomId}>Nom du document</FormLabel>
+            <Field id={nomId} placeholder="ex. Rapport Q1 2026" value={nom} onChange={e => setNom(e.target.value)} />
+          </div>
+          <div>
+            <FormLabel htmlFor={catId} required>Catégorie</FormLabel>
+            <Field as="select" id={catId} value={categorie} hasError={!!errors.categorie} onChange={e => { setCat(e.target.value); setErrors(er => ({ ...er, categorie: null })); }}>
+              <option value="">— Choisir —</option>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </Field>
+            {errors.categorie && <p role="alert" style={{ fontSize: 11, color: 'var(--color-danger)', marginTop: 4 }}>{errors.categorie}</p>}
           </div>
         </div>
-
-        {/* ── Zone d'aperçu ── */}
-        <div style={{
-          height: 400, border: '1px solid var(--color-border)', borderRadius: 12,
-          overflow: 'hidden', background: 'var(--color-background-secondary)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          {renderContent()}
+        <div>
+          <FormLabel htmlFor={descId} hint="(optionnel)">Description</FormLabel>
+          <Field as="textarea" id={descId} placeholder="Décrivez brièvement le contenu…" value={description} onChange={e => setDesc(e.target.value)} maxLength={200} style={{ resize: 'none', height: 60 }} />
         </div>
-
-        {/* ── Pagination PDF ── */}
-        {isPdf && totalPages > 1 && status === 'done' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage(p => p - 1)}
-              style={{
-                background: 'none', border: '1px solid var(--color-border)',
-                borderRadius: 6, padding: '4px 12px',
-                cursor: page <= 1 ? 'not-allowed' : 'pointer',
-                color: 'var(--color-text-muted)', fontSize: 13,
-                opacity: page <= 1 ? 0.4 : 1, transition: 'opacity 0.15s',
-              }}
-            >◀</button>
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted)', minWidth: 80, textAlign: 'center' }}>
-              Page {page} / {totalPages}
-            </span>
-            <button
-              disabled={page >= totalPages}
-              onClick={() => setPage(p => p + 1)}
-              style={{
-                background: 'none', border: '1px solid var(--color-border)',
-                borderRadius: 6, padding: '4px 12px',
-                cursor: page >= totalPages ? 'not-allowed' : 'pointer',
-                color: 'var(--color-text-muted)', fontSize: 13,
-                opacity: page >= totalPages ? 0.4 : 1, transition: 'opacity 0.15s',
-              }}
-            >▶</button>
+        <div>
+          <FormLabel required>Visibilité</FormLabel>
+          <div style={{ display: 'flex', gap: 8 }} role="radiogroup" aria-label="Visibilité du document">
+            {VIS_OPTIONS.map(opt => {
+              const active  = visibilite === opt.id;
+              const fgColor = active ? (opt.danger ? 'var(--color-danger)' : 'var(--color-success)') : T.t3;
+              const bgColor = active ? (opt.danger ? 'rgba(220,38,38,.06)' : 'rgba(22,163,74,.06)') : 'transparent';
+              const bdColor = active ? (opt.danger ? 'rgba(220,38,38,.3)' : 'rgba(22,163,74,.3)') : T.bd0;
+              const IcoComp = opt.iconKey === 'lock' ? IcLock : IcShare;
+              return (
+                <div key={opt.id} role="radio" aria-checked={active} tabIndex={0}
+                  onClick={() => setVis(opt.id)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setVis(opt.id); }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${bdColor}`, borderRadius: T.r8, padding: '10px 12px', cursor: 'pointer', background: bgColor, transition: 'all .15s' }}
+                >
+                  <span style={{ color: fgColor, lineHeight: 0 }}><IcoComp /></span>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: T.t1, margin: 0 }}>{opt.label}</p>
+                    <p style={{ fontSize: 11, color: T.t3, margin: 0 }}>{opt.sub}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        )}
-
-        {/* ── Actions ── */}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <Button variant="ghost" icon="share" onClick={() => { onShare(doc); onClose(); }}>
-            {doc.shared ? 'Rendre privé' : 'Partager'}
-          </Button>
-          <Button variant="ghost" icon="download" onClick={() => onDownload(doc)}>
-            Télécharger
-          </Button>
-          <Button variant="primary" onClick={onClose}>Fermer</Button>
+          <p style={{ fontSize: 11, color: T.t3, marginTop: 6 }}>Modifiable après l'upload.</p>
         </div>
-
+        {errors.submit && <p role="alert" style={{ fontSize: 11, color: 'var(--color-danger)', textAlign: 'center' }}>{errors.submit}</p>}
+        <ModalFooter onCancel={handleClose} onConfirm={handleSubmit} cancelLabel="Annuler" confirmLabel="Uploader" loading={loading} />
       </div>
     </Modal>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Page principale
-// ─────────────────────────────────────────────────────────────────────────────
-export default function DocumentsPage() {
-  const { addToast } = useNotif();
+/* ════════════════════════════════════════════════════════════════
+   DELETE MODAL
+   ════════════════════════════════════════════════════════════════ */
+function DeleteModal({ doc, onClose, onConfirm }) {
+  return (
+    <Modal open={!!doc} onClose={onClose} title="Supprimer le document" width={460}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ padding: '12px 14px', background: 'rgba(240,112,112,.07)', border: '1px solid rgba(240,112,112,.18)', borderRadius: T.r10 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-danger)', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IcWarn /> {doc?.name}
+          </p>
+          <p style={{ fontSize: 12, color: T.t3, lineHeight: 1.6, margin: 0 }}>Action irréversible. Le fichier sera définitivement supprimé du stockage.</p>
+        </div>
+        <ModalFooter onCancel={onClose} onConfirm={onConfirm} cancelLabel="Conserver" confirmLabel="Supprimer" />
+      </div>
+    </Modal>
+  );
+}
 
-  const [docs,        setDocs]        = useState(initialDocs);
-  const [query,       setQuery]       = useState('');
-  const [filterCat,   setFilterCat]   = useState('Tous');
-  const [uploadModal, setUploadModal] = useState(false);
-  const [previewDoc,  setPreviewDoc]  = useState(null); // ← nouveau
+/* ════════════════════════════════════════════════════════════════
+   PREVIEW
+   ════════════════════════════════════════════════════════════════ */
+const CDN = {
+  mammoth:    'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
+  xlsx:       'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  pdfjs:      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+  pdfjsWorker:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+};
 
-  const usedMB = docs.reduce((acc, d) => acc + parseMB(d.size), 0);
-  const pct    = Math.min(Math.round((usedMB / TOTAL_STORAGE_MB) * 100), 100);
+function useFilePreview(doc) {
+  const [status,     setStatus]    = useState('idle');
+  const [content,    setContent]   = useState(null);
+  const [totalPages, setTotalPages]= useState(1);
+  const pdfRef = useRef(null);
+  const { loaded: mammothLoaded } = useScript(doc?.type === 'docx' && !doc?._fromS3 ? CDN.mammoth : null);
+  const { loaded: xlsxLoaded    } = useScript(doc?.type === 'xlsx' && !doc?._fromS3 ? CDN.xlsx    : null);
+  const { loaded: pdfjsLoaded   } = useScript(doc?.type === 'pdf'  && !doc?._fromS3 ? CDN.pdfjs   : null);
 
-  const allCategories = ['Tous', ...new Set(docs.map(d => d.category))];
+  useEffect(() => {
+    if (!doc?.rawFile) { setStatus('idle'); setContent(null); setTotalPages(1); return; }
+    const file = doc.rawFile;
+    let cancelled = false;
+    async function load() {
+      setStatus('loading'); setContent(null); setTotalPages(1);
+      try {
+        if (doc.type === 'png') {
+          const url = URL.createObjectURL(file);
+          if (!cancelled) { setStatus('done'); setContent({ kind: 'image', url }); }
+          return () => URL.revokeObjectURL(url);
+        }
+        if (doc.type === 'docx') {
+          if (!mammothLoaded) return;
+          const buf    = await file.arrayBuffer();
+          const result = await window.mammoth.convertToHtml({ arrayBuffer: buf });
+          if (!cancelled) { setStatus('done'); setContent({ kind: 'html', html: result.value }); }
+          return;
+        }
+        if (doc.type === 'xlsx') {
+          if (!xlsxLoaded) return;
+          const buf  = await file.arrayBuffer();
+          const wb   = window.XLSX.read(buf, { type: 'array' });
+          const ws   = wb.Sheets[wb.SheetNames[0]];
+          const html = window.XLSX.utils.sheet_to_html(ws, { editable: false });
+          if (!cancelled) { setStatus('done'); setContent({ kind: 'html', html }); }
+          return;
+        }
+        if (doc.type === 'pdf') {
+          if (!pdfjsLoaded) return;
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = CDN.pdfjsWorker;
+          const buf = await file.arrayBuffer();
+          const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+          if (!cancelled) { pdfRef.current = pdf; setStatus('done'); setContent({ kind: 'pdf' }); setTotalPages(pdf.numPages); }
+          return;
+        }
+        if (!cancelled) setStatus('unsupported');
+      } catch { if (!cancelled) setStatus('error'); }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [doc?.id, mammothLoaded, xlsxLoaded, pdfjsLoaded]);
 
-  const filtered = docs.filter(d => {
-    const matchQ = d.name.toLowerCase().includes(query.toLowerCase())
-                || d.author.toLowerCase().includes(query.toLowerCase());
-    const matchC = filterCat === 'Tous' || d.category === filterCat;
-    return matchQ && matchC;
-  });
+  return { status, content, totalPages, pdfRef };
+}
 
-  // Basculer partage / privé
-  function handleShare(doc) {
-    setDocs(prev => prev.map(d =>
-      d.id === doc.id ? { ...d, shared: !d.shared } : d
-    ));
-    addToast(doc.shared ? 'Document mis en privé.' : "Document partagé avec l'équipe !", 'success');
-  }
+function PdfCanvas({ pdfRef, page }) {
+  const canvasRef = useRef(null);
+  const renderRef = useRef(null);
+  useEffect(() => {
+    if (!pdfRef.current || !canvasRef.current) return;
+    renderRef.current?.cancel();
+    renderRef.current = null;
+    pdfRef.current.getPage(page).then(pdfPage => {
+      if (!canvasRef.current) return;
+      const ctx = canvasRef.current.getContext('2d');
+      const vp  = pdfPage.getViewport({ scale: 1.4 });
+      canvasRef.current.width  = vp.width;
+      canvasRef.current.height = vp.height;
+      const task = pdfPage.render({ canvasContext: ctx, viewport: vp });
+      renderRef.current = task;
+      task.promise.catch(e => { if (e?.name !== 'RenderingCancelledException') console.error(e); });
+    });
+  }, [pdfRef, page]);
+  return <canvas ref={canvasRef} style={{ maxWidth: '100%', display: 'block', margin: '0 auto' }} />;
+}
 
-  // Supprimer
-  function handleDelete(doc) {
-    setDocs(prev => prev.filter(d => d.id !== doc.id));
-    setPreviewDoc(null);
-    addToast('Document supprimé.', 'warning');
-  }
+function PreviewSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, width: '100%' }}>
+      {[100, 80, 90, 60, 85].map((w, i) => <div key={i} className="xd-skeleton" style={{ height: 14, width: `${w}%` }} />)}
+    </div>
+  );
+}
 
-  // Télécharger (simulé)
-  function handleDownload(doc) {
-    addToast(`Téléchargement de ${doc.name}…`, 'info');
-  }
+/* ── Panneau CR S3 (résumé + décisions + actions) ───────────── */
+function CRPreviewPanel({ doc }) {
+  return (
+    <div style={{ padding: '20px 24px', overflowY: 'auto', height: '100%', fontFamily: 'var(--font-sans)' }}>
+      <section style={{ marginBottom: 20 }}>
+        <h3 style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: T.t3, marginBottom: 8, margin: '0 0 8px' }}>
+          Résumé
+        </h3>
+        <p style={{ fontSize: 13.5, color: T.t1, lineHeight: 1.75, margin: 0 }}>
+          {doc.summary ?? <span style={{ color: T.t3, fontStyle: 'italic' }}>Aucun résumé disponible.</span>}
+        </p>
+      </section>
+      {doc.decisions?.length > 0 && (
+        <section style={{ marginBottom: 20 }}>
+          <h3 style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: T.t3, margin: '0 0 8px' }}>
+            Décisions ({doc.decisions.length})
+          </h3>
+          <ol style={{ margin: 0, paddingLeft: 18 }}>
+            {doc.decisions.map((d, i) => (
+              <li key={d.id ?? i} style={{ fontSize: 13, color: T.t2, lineHeight: 1.7, marginBottom: 4 }}>{d.text}</li>
+            ))}
+          </ol>
+        </section>
+      )}
+      {doc.actions?.length > 0 && (
+        <section>
+          <h3 style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: T.t3, margin: '0 0 8px' }}>
+            Actions ({doc.actions.length})
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {doc.actions.map((a, i) => (
+              <div key={a.id ?? i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', background: T.bg2, borderRadius: T.r8, border: `1px solid ${T.bd0}` }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.acc, flexShrink: 0, marginTop: 6 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: T.t1, margin: 0 }}>{a.title}</p>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 11, color: T.t3 }}>
+                    {a.assignee && <span>👤 {a.assignee}</span>}
+                    {a.due      && <span>📅 {a.due}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
 
-  // Upload — reçoit un FormData, simule un ajout local
-  async function handleUpload(formData) {
-    // TODO : remplacer par un vrai appel API
-    // await api.post('/documents', formData);
+/* ════════════════════════════════════════════════════════════════
+   CRS3Preview — avec cache module-level (TTL 13 min)
+   ════════════════════════════════════════════════════════════════ */
 
-    const rawFile = formData._rawFile;
-    const type    = getExtension(rawFile?.name || '');
+// Cache persistant entre les renders — clé : meetingId
+const s3UrlCache = new Map(); // meetingId → { url: string, expiresAt: number }
+const S3_CACHE_TTL_MS = 13 * 60 * 1000; // 13 min (le TTL Laravel est 15 min)
 
-    const newDoc = {
-      id:       Date.now(),
-      name:     formData.get('nom'),
-      author:   'Moi',
-      size:     rawFile ? formatSize(rawFile.size) : '—',
-      date:     new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
-      category: formData.get('categorie'),
-      type,
-      shared:   formData.get('visibilite') === 'partage',
-      rawFile,  // ← conservé en mémoire pour la prévisualisation réelle
-    };
+function CRS3Preview({ doc }) {
+  const [url,     setUrl]     = useState(null);
+  const [error,   setError]   = useState(false);
+  const [loading, setLoading] = useState(true);
 
-    setDocs(prev => [newDoc, ...prev]);
-    addToast('Document uploadé avec succès !', 'success');
+  useEffect(() => {
+    let cancelled = false;
+
+    // ── 1. Vérifier le cache avant tout fetch ─────────────────
+    const cached = s3UrlCache.get(doc.meetingId);
+    if (cached && cached.expiresAt > Date.now()) {
+      setUrl(cached.url);
+      setLoading(false);
+      return;
+    }
+
+    // ── 2. Fetch l'URL signée ─────────────────────────────────
+    const token = localStorage.getItem('xamio_token');
+
+    fetch(`/api/reunions/${doc.meetingId}/compte-rendu/download`, {
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
+      .then(data => {
+        if (!cancelled) {
+          // ── 3. Mettre en cache avec TTL ───────────────────────
+          s3UrlCache.set(doc.meetingId, {
+            url:       data.url,
+            expiresAt: Date.now() + S3_CACHE_TTL_MS,
+          });
+          setUrl(data.url);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) { setError(true); setLoading(false); }
+      });
+
+    return () => { cancelled = true; };
+  }, [doc.meetingId]); // ← dépendance stable sur l'id, pas sur le doc entier
+
+  if (loading) return <PreviewSkeleton />;
+  if (error) return (
+    <div style={{ textAlign: 'center', color: T.t3, padding: 24 }}>
+      <p style={{ fontSize: 36 }}>⚠️</p>
+      <p style={{ fontSize: 13, marginTop: 10 }}>Impossible de charger le fichier.</p>
+    </div>
+  );
+
+  const isDocx = doc.type === 'docx';
+  const src = isDocx
+    ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
+    : url;
+
+  return (
+    <iframe
+      src={src}
+      title={doc.name}
+      style={{ width: '100%', height: '100%', border: 'none', borderRadius: T.r8 }}
+      sandbox="allow-scripts allow-same-origin allow-popups"
+    />
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PreviewModal — avec prop `open` séparée (keep-alive pattern)
+   ════════════════════════════════════════════════════════════════ */
+function PreviewModal({ doc, open, onClose, onDownload, onShare }) {
+  const [page, setPage] = useState(1);
+  const { status, content, totalPages, pdfRef } = useFilePreview(doc);
+  const c = T.fileColors[doc?.type] || { fg: T.t3, bg: T.bg2 };
+  const isMeeting = doc?.source === 'meeting';
+
+  useEffect(() => { setPage(1); }, [doc?.id]);
+
+  // Ne rien rendre si aucun doc n'a jamais été sélectionné
+  if (!doc) return null;
+
+  function renderContent() {
+    // CR sans fichier → panneau texte instantané
+    if (doc._fromS3 && !doc.hasFile) return <CRPreviewPanel doc={doc} />;
+
+    // CR avec fichier S3 → iframe via URL signée (cachée)
+    if (doc._fromS3 && doc.hasFile) return <CRS3Preview doc={doc} />;
+
+    if (status === 'loading') return <PreviewSkeleton />;
+    if (status === 'error') return (
+      <div style={{ textAlign: 'center', color: T.t3 }}>
+        <p style={{ fontSize: 36 }}>⚠️</p>
+        <p style={{ fontSize: 13, marginTop: 10 }}>Impossible de charger l'aperçu.</p>
+      </div>
+    );
+    if (status === 'done' && content) {
+      if (content.kind === 'image') return <img src={content.url} alt={doc.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6 }} />;
+      if (content.kind === 'html')  return <div style={{ width: '100%', height: '100%', overflow: 'auto', padding: '16px 20px' }} dangerouslySetInnerHTML={{ __html: content.html }} />;
+      if (content.kind === 'pdf')   return <div style={{ width: '100%', height: '100%', overflow: 'auto', padding: 8 }}><PdfCanvas pdfRef={pdfRef} page={page} /></div>;
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, height: '100%', padding: '0 24px', textAlign: 'center' }}>
+        <div style={{ width: 56, height: 56, borderRadius: T.r12, background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FileIcon type={doc.type} /></div>
+        <p style={{ fontSize: 15, fontWeight: 600, color: T.t1, margin: '0 0 4px' }}>{doc.name}</p>
+        <p style={{ fontSize: 12, color: T.t3, margin: 0 }}>Aperçu disponible uniquement pour les fichiers uploadés dans cette session.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="animate-enter">
-      <SectionHeader
-        title="Documents"
-        subtitle={`${docs.length} fichiers · ${usedMB.toFixed(1)} MB utilisés`}
-        action="Uploader"
-        actionIcon="cloud"
-        onAction={() => setUploadModal(true)}
-      />
-
-      {/* Recherche + filtres catégorie */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 18, alignItems: 'center', flexWrap: 'wrap' }}>
-        <SearchBar value={query} onChange={setQuery} placeholder="Rechercher un document…" />
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {allCategories.map(c => (
-            <button
-              key={c}
-              onClick={() => setFilterCat(c)}
-              style={{
-                padding: '7px 13px', borderRadius: 8, border: '1px solid',
-                fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-sans)',
-                transition: 'all var(--transition-normal)',
-                background:  filterCat === c ? 'var(--color-accent-bg)'    : 'transparent',
-                borderColor: filterCat === c ? 'var(--color-accent-border)' : 'var(--color-border)',
-                color:       filterCat === c ? 'var(--color-accent)'        : 'var(--color-text-muted)',
-              }}
-            >
-              {c}
-            </button>
-          ))}
+    <Modal open={open} onClose={onClose} title={`Aperçu — ${doc.name}`} width={900}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 12px', background: T.bg2, borderRadius: T.r8, fontSize: 12, color: T.t3 }}>
+          <Avatar name={doc.author} size={18} />
+          <span style={{ marginLeft: 2 }}>{doc.author}</span>
+          <span style={{ opacity: .4 }}>·</span>
+          <span>{doc.size}</span>
+          <span style={{ opacity: .4 }}>·</span>
+          <span>{doc.date}</span>
+          <span style={{ opacity: .4 }}>·</span>
+          <TypePill type={doc.type} />
+          <div style={{ marginLeft: 'auto' }}>
+            {isMeeting
+              ? <MeetingBadge meetingId={doc.meetingId} meetingTitle={doc.meetingTitle} />
+              : doc.shared
+                ? <Tag icon={<IcShare />} color="var(--color-success)" bg="var(--color-success-bg)">Partagé</Tag>
+                : <Tag icon={<IcLock />}  color={T.t3} bg={T.bg2}>Privé</Tag>
+            }
+          </div>
         </div>
-      </div>
-
-      {/* Tableau */}
-      <div style={{
-        background: 'var(--color-background-secondary)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 14, overflow: 'hidden', marginBottom: 18,
-      }}>
-        {/* En-tête */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '2.5fr 100px 130px 90px 80px 90px',
-          padding: '10px 20px',
-          borderBottom: '1px solid var(--color-border)',
-          fontSize: 11, color: 'var(--color-text-muted)',
-          fontWeight: 600, letterSpacing: '.05em',
-        }}>
-          <span>NOM</span>
-          <span>TAILLE</span>
-          <span>DATE</span>
-          <span>CATÉGORIE</span>
-          <span>ACCÈS</span>
-          <span />
+        <div style={{ height: 400, border: `1px solid ${T.bd0}`, borderRadius: T.r12, overflow: 'hidden', background: T.bg2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {renderContent()}
         </div>
-
-        {filtered.length === 0 && (
-          <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>
-            Aucun document trouvé.
+        {doc.type === 'pdf' && totalPages > 1 && status === 'done' && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }} role="navigation" aria-label="Navigation pages PDF">
+            <GhostBtn small onClick={() => setPage(p => p - 1)} disabled={page <= 1}>◀</GhostBtn>
+            <span style={{ fontSize: 12, color: T.t3, minWidth: 80, textAlign: 'center' }} aria-live="polite">Page {page} / {totalPages}</span>
+            <GhostBtn small onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}>▶</GhostBtn>
           </div>
         )}
-
-        {filtered.map((doc, i) => (
-          <div
-            key={doc.id}
-            onClick={() => setPreviewDoc(doc)} // ← ouvre la prévisualisation
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-background-tertiary)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '2.5fr 100px 130px 90px 80px 90px',
-              padding: '13px 20px',
-              borderBottom: i < filtered.length - 1 ? '1px solid var(--color-border)' : 'none',
-              alignItems: 'center',
-              cursor: 'pointer',
-              transition: 'background var(--transition-normal)',
-            }}
-          >
-            {/* Nom */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-              <span style={{ fontSize: 22, flexShrink: 0 }}>{TYPE_ICONS[doc.type] || TYPE_ICONS.default}</span>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {doc.name}
-                </p>
-                <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 1 }}>par {doc.author}</p>
-              </div>
-            </div>
-
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{doc.size}</span>
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{doc.date}</span>
-            <span><Badge label={doc.category} color={TYPE_COLORS[doc.type] || 'gray'} /></span>
-            <span>
-              {doc.shared
-                ? <Badge label="Partagé" color="ochre" />
-                : <Badge label="Privé"   color="muted" />}
-            </span>
-
-            {/* Actions inline */}
-            <div
-              style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Bouton aperçu */}
-              <button
-                title="Prévisualiser"
-                onClick={() => setPreviewDoc(doc)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}
-              >
-                <Icon name="eye" size={15} color="var(--color-text-muted)" />
-              </button>
-
-              <button
-                title="Télécharger"
-                onClick={() => handleDownload(doc)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}
-              >
-                <Icon name="download" size={15} color="var(--color-text-muted)" />
-              </button>
-
-              <button
-                title={doc.shared ? 'Rendre privé' : 'Partager'}
-                onClick={() => handleShare(doc)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}
-              >
-                <Icon name="share" size={15} color={doc.shared ? 'var(--color-accent)' : 'var(--color-text-muted)'} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Barre de stockage */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 14,
-        padding: '14px 18px',
-        background: 'var(--color-background-secondary)',
-        borderRadius: 12, border: '1px solid var(--color-border)',
-      }}>
-        <Icon name="cloud" size={18} color="var(--color-accent)" />
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Stockage utilisé</span>
-            <span style={{ fontSize: 12, color: 'var(--color-accent)', fontWeight: 600 }}>
-              {usedMB.toFixed(1)} MB / 1 GB
-            </span>
-          </div>
-          <div style={{ height: 6, background: 'var(--color-background-tertiary)', borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{
-              width: `${pct}%`, height: '100%',
-              background: pct > 80 ? 'var(--color-error, #dc2626)' : 'var(--color-accent)',
-              borderRadius: 3, transition: 'width 0.4s ease',
-            }} />
-          </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          {!isMeeting && <GhostBtn onClick={() => { onShare(doc); onClose(); }}>{doc.shared ? 'Rendre privé' : 'Partager'}</GhostBtn>}
+          <GhostBtn onClick={() => onDownload(doc)}>Télécharger</GhostBtn>
+          <PrimaryBtn onClick={onClose}>Fermer</PrimaryBtn>
         </div>
-        <span style={{ fontSize: 12, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{pct}% utilisé</span>
       </div>
+    </Modal>
+  );
+}
 
-      {/* Modale d'upload */}
-      <UploadModal
-        open={uploadModal}
-        onClose={() => setUploadModal(false)}
-        onUpload={handleUpload}
+/* ════════════════════════════════════════════════════════════════
+   EMPTY STATE
+   ════════════════════════════════════════════════════════════════ */
+function EmptyState({ hasQuery }) {
+  return (
+    <div role="status" style={{ textAlign: 'center', padding: '72px 24px', background: T.bg1, borderRadius: T.r16, border: `1px solid ${T.bd0}` }}>
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: T.accm, border: `1px solid ${T.accb}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+        <span style={{ color: T.acc, lineHeight: 0 }}><IcCloud /></span>
+      </div>
+      <p style={{ fontSize: 14, fontWeight: 600, color: T.t1, marginBottom: 6 }}>{hasQuery ? 'Aucun résultat' : 'Aucun document'}</p>
+      <p style={{ fontSize: 13, color: T.t3, maxWidth: 300, margin: '0 auto', lineHeight: 1.7 }}>
+        {hasQuery ? 'Modifiez vos filtres ou votre recherche.' : 'Uploadez votre premier fichier.'}
+      </p>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   STORAGE BAR
+   ════════════════════════════════════════════════════════════════ */
+const StorageBar = memo(function StorageBar({ usedMB }) {
+  const pct   = Math.min(Math.round(usedMB / TOTAL_STORAGE_MB * 100), 100);
+  const color = pct > 80 ? 'var(--color-danger)' : T.acc;
+  const label = TOTAL_STORAGE_MB >= 1024 ? `${TOTAL_STORAGE_MB / 1024} GB` : `${TOTAL_STORAGE_MB} MB`;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: T.bg1, borderRadius: T.r12, border: `1px solid ${T.bd0}` }}
+      role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`Stockage utilisé : ${pct}%`}
+    >
+      <span style={{ color: T.acc, lineHeight: 0, flexShrink: 0 }} aria-hidden><IcCloud /></span>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ fontSize: 12, color: T.t3 }}>Stockage utilisé</span>
+          <span style={{ fontSize: 12, color, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{usedMB.toFixed(1)} MB / {label}</span>
+        </div>
+        <div style={{ height: 6, background: T.bg3, borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3, transition: 'width .4s ease', transformOrigin: 'left', animation: 'xd-bar .7s cubic-bezier(.22,1,.36,1)' }} />
+        </div>
+      </div>
+      <span style={{ fontSize: 12, color: T.t3, whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>{pct}%</span>
+    </div>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════════
+   PAGE PRINCIPALE
+   ════════════════════════════════════════════════════════════════ */
+export default function DocumentsPage() {
+  const { addToast }                                    = useNotif();
+  const { docs, addDocument, removeDocument, toggleShare } = useDocumentsCtx();
+
+  useMeetingDocuments({
+    addDocument,
+    fetchOptions: { credentials: 'include' },
+  });
+
+  const {
+    query, setQuery, catFilter, setCatFilter,
+    accessFilter, setAccessFilter, typeFilter, setTypeFilter,
+    sourceFilter, setSourceFilter, filtered, resetFilters, hasActiveFilters,
+  } = useDocFilters(docs);
+
+  const [uploadModal, setUploadModal] = useState(false);
+  const [deleteDoc,   setDeleteDoc]   = useState(null);
+
+  // ── Keep-alive : on garde le dernier doc affiché pour éviter
+  //    le remontage de CRS3Preview à chaque fermeture/ouverture ──
+  const [previewOpen, setPreviewOpen]   = useState(false);
+  const [lastPreview, setLastPreview]   = useState(null);
+
+  const openPreview = useCallback((doc) => {
+    setLastPreview(doc);
+    setPreviewOpen(true);
+  }, []);
+
+  const closePreview = useCallback(() => {
+    setPreviewOpen(false);
+    // On conserve lastPreview pour éviter le flash de contenu vide
+    // pendant l'animation de fermeture de la modal
+  }, []);
+
+  const usedMB = useMemo(() => docs.reduce((acc, d) => acc + parseMB(d.size), 0), [docs]);
+
+  /* ── Handlers ─────────────────────────────────────────────── */
+  const handleShare = useCallback((doc) => {
+    toggleShare(doc.id);
+    addToast(doc.shared ? 'Document mis en privé.' : "Document partagé avec l'équipe !", 'success');
+  }, [toggleShare, addToast]);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!deleteDoc) return;
+    removeDocument(deleteDoc.id);
+    // Fermer la preview si le doc supprimé était affiché
+    if (lastPreview?.id === deleteDoc.id) {
+      setPreviewOpen(false);
+      setLastPreview(null);
+    }
+    addToast('Document supprimé.', 'warning');
+    setDeleteDoc(null);
+  }, [deleteDoc, removeDocument, lastPreview, addToast]);
+
+  const handleDownload = useCallback(async (doc) => {
+    if (doc._fromS3 && doc.hasFile) {
+      try {
+        // Réutiliser l'URL en cache si disponible
+        const cached = s3UrlCache.get(doc.meetingId);
+        if (cached && cached.expiresAt > Date.now()) {
+          window.open(cached.url, '_blank', 'noopener,noreferrer');
+          addToast(`Téléchargement de « ${doc.name} »…`, 'success');
+          return;
+        }
+        const res = await fetch(`/api/reunions/${doc.meetingId}/compte-rendu/download`, {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const { url } = await res.json();
+        s3UrlCache.set(doc.meetingId, { url, expiresAt: Date.now() + S3_CACHE_TTL_MS });
+        window.open(url, '_blank', 'noopener,noreferrer');
+        addToast(`Téléchargement de « ${doc.name} »…`, 'success');
+      } catch (err) {
+        console.error('[handleDownload]', err);
+        addToast('Impossible de générer le lien de téléchargement.', 'error');
+      }
+      return;
+    }
+
+    if (doc._fromS3 && !doc.hasFile) {
+      const lines = [
+        `# ${doc.name}`,
+        `Date : ${doc.date}`,
+        '',
+        '## Résumé',
+        doc.summary ?? '—',
+        '',
+        '## Décisions',
+        ...(doc.decisions ?? []).map((d, i) => `${i + 1}. ${d.text}`),
+        '',
+        '## Actions',
+        ...(doc.actions ?? []).map(a =>
+          `- ${a.title}${a.assignee ? ` (${a.assignee})` : ''}${a.due ? ` — échéance : ${a.due}` : ''}`
+        ),
+      ];
+      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = Object.assign(document.createElement('a'), { href: url, download: `${doc.name.replace(/[^a-z0-9]/gi, '_')}.txt` });
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast(`Export texte de « ${doc.name} » prêt.`, 'info');
+      return;
+    }
+
+    addToast(`Téléchargement de « ${doc.name} »…`, 'info');
+  }, [addToast]);
+
+  const handleUpload = useCallback(async ({ file, nom, categorie, description, visibilite }) => {
+    const newDoc = {
+      id:       `doc-${Date.now()}`,
+      name:     nom || file.name,
+      author:   'Moi',
+      size:     formatSize(file.size),
+      date:     new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      category: categorie,
+      type:     getExtension(file.name),
+      shared:   visibilite === 'partage',
+      rawFile:  file,
+      source:   'library',
+    };
+    addDocument(newDoc);
+    addToast('Document uploadé avec succès !', 'success');
+  }, [addDocument, addToast]);
+
+  return (
+    <div className="xd-page xd-page-enter" style={{ padding: '0 2px', maxWidth: '100%', overflowX: 'hidden' }}>
+
+      <header className="xd-header-row" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: T.t1, letterSpacing: '-.6px', marginBottom: 4, fontFamily: 'var(--font-sans)' }}>Documents</h1>
+          <p style={{ fontSize: 13, color: T.t3 }} aria-live="polite">
+            {docs.length} fichier{docs.length !== 1 ? 's' : ''} · {usedMB.toFixed(1)} MB utilisés
+          </p>
+        </div>
+        <PrimaryBtn onClick={() => setUploadModal(true)}>
+          <IcPlus /> Uploader un fichier
+        </PrimaryBtn>
+      </header>
+
+      <StatsHeader docs={filtered} usedMB={usedMB} />
+
+      <FiltersBar
+        query={query}               setQuery={setQuery}
+        catFilter={catFilter}       setCatFilter={setCatFilter}
+        accessFilter={accessFilter} setAccessFilter={setAccessFilter}
+        typeFilter={typeFilter}     setTypeFilter={setTypeFilter}
+        sourceFilter={sourceFilter} setSourceFilter={setSourceFilter}
+        resetFilters={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+        activeCount={filtered.length}
       />
 
-      {/* Modale de prévisualisation */}
+      {filtered.length === 0 ? (
+        <EmptyState hasQuery={hasActiveFilters} />
+      ) : (
+        <div className="xd-grid" style={{ marginBottom: 18 }} role="list" aria-label="Liste des documents">
+          {filtered.map((doc, i) => (
+            <DocCard
+              key={doc.id} doc={doc} index={i}
+              onClick={() => openPreview(doc)}
+              onPreview={openPreview}
+              onDownload={handleDownload}
+              onShare={handleShare}
+              onDelete={setDeleteDoc}
+            />
+          ))}
+        </div>
+      )}
+
+      <StorageBar usedMB={usedMB} />
+
+      <UploadModal open={uploadModal} onClose={() => setUploadModal(false)} onUpload={handleUpload} />
+
+      {/* keep-alive : doc = lastPreview (jamais null une fois ouvert),
+          open = previewOpen contrôle l'affichage séparément             */}
       <PreviewModal
-        doc={previewDoc}
-        onClose={() => setPreviewDoc(null)}
+        doc={lastPreview}
+        open={previewOpen}
+        onClose={closePreview}
         onDownload={handleDownload}
         onShare={handleShare}
       />
+
+      <DeleteModal doc={deleteDoc} onClose={() => setDeleteDoc(null)} onConfirm={handleDeleteConfirm} />
     </div>
   );
 }
