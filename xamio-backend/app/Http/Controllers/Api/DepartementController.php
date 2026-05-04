@@ -31,8 +31,16 @@ class DepartementController extends Controller
             ->orderBy('dept_nom')
             ->get()
             ->map(fn($d) => [
-                'dept_id'       => $d->dept_id,
-                'dept_nom'      => $d->dept_nom,
+                'dept_id'          => $d->dept_id,
+                'dept_nom'         => $d->dept_nom,
+                'dept_description' => $d->dept_description,
+                'dept_actif'       => $d->dept_actif,
+                'user_id'          => $d->user_id,   // ← pour pré-remplir le select manager
+                'manager'          => $d->manager ? [
+                    'id'    => $d->manager->id,
+                    'nom'   => trim($d->manager->util_prenom . ' ' . $d->manager->util_nom),
+                    'email' => $d->manager->email,
+                ] : null,
                 'membres_count' => $d->membres_count,
                 'membres'       => $d->membres->map(fn($u) => [
                     'user_id'     => $u->id,
@@ -109,10 +117,17 @@ class DepartementController extends Controller
         return response()->json([
             'success'     => true,
             'departement' => [
-                'dept_id'  => $departement->dept_id,
-                'dept_nom' => $departement->dept_nom,
-                'manager'  => $departement->manager,
-                'membres'  => $departement->membres->map(fn($u) => [
+                'dept_id'          => $departement->dept_id,
+                'dept_nom'         => $departement->dept_nom,
+                'dept_description' => $departement->dept_description,
+                'dept_actif'       => $departement->dept_actif,
+                'user_id'          => $departement->user_id,
+                'manager'          => $departement->manager ? [
+                    'id'    => $departement->manager->id,
+                    'nom'   => trim($departement->manager->util_prenom . ' ' . $departement->manager->util_nom),
+                    'email' => $departement->manager->email,
+                ] : null,
+                'membres' => $departement->membres->map(fn($u) => [
                     'user_id'     => $u->id,
                     'util_prenom' => $u->util_prenom,
                     'util_nom'    => $u->util_nom,
@@ -142,10 +157,23 @@ class DepartementController extends Controller
 
         $departement->update($validated);
 
+        $departement->load('manager:id,util_prenom,util_nom');
+
         return response()->json([
             'success'     => true,
             'message'     => 'Département mis à jour.',
-            'departement' => $departement->fresh(['manager:id,util_prenom,util_nom']),
+            'departement' => [
+                'dept_id'          => $departement->dept_id,
+                'dept_nom'         => $departement->dept_nom,
+                'dept_description' => $departement->dept_description,
+                'dept_actif'       => $departement->dept_actif,
+                'user_id'          => $departement->user_id,
+                'manager'          => $departement->manager ? [
+                    'id'    => $departement->manager->id,
+                    'nom'   => trim($departement->manager->util_prenom . ' ' . $departement->manager->util_nom),
+                    'email' => $departement->manager->email,
+                ] : null,
+            ],
         ]);
     }
 

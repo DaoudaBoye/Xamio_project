@@ -1,3 +1,8 @@
+/**
+ * Xamio — TasksPage v2.2
+ * Icônes artisanales, code optimisé
+ */
+
 import React, {
   useState, useMemo, useRef, useEffect, useCallback, memo,
 } from 'react';
@@ -7,21 +12,23 @@ import { useNotif }       from '../../../context/NotifContext';
 import { useAuth }        from '../../../context/AuthContext';
 import CreateTacheModal   from './CreateTacheModal';
 
+/* ════════════════════════════════════════════════════════════
+   GLOBAL CSS
+   ════════════════════════════════════════════════════════════ */
 const GLOBAL_CSS = `
   *, *::before, *::after { box-sizing: border-box; }
   .xm-tasks { font-family: var(--font-sans); }
 
   @keyframes xm-fade-up  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
   @keyframes xm-bar      { from{transform:scaleX(0)} to{transform:scaleX(1)} }
-  @keyframes xm-blink    { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
   @keyframes xm-menu-pop { from{opacity:0;transform:scale(.96) translateY(-4px)} to{opacity:1;transform:none} }
-  @keyframes skeleton-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes sk-pulse    { 0%,100%{opacity:1} 50%{opacity:.4} }
 
   .xm-enter      { animation: xm-fade-up .28s cubic-bezier(.22,1,.36,1) both; }
   .xm-card-enter { animation: xm-fade-up .28s cubic-bezier(.22,1,.36,1) both; }
 
   .kanban-container {
-    display: grid; grid-template-columns: repeat(3,1fr); gap:20px; margin-top:24px;
+    display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-top:24px;
   }
   @media(max-width:1024px){ .kanban-container{ grid-template-columns:repeat(2,1fr); } }
   @media(max-width:640px) { .kanban-container{ grid-template-columns:1fr; gap:12px; margin-top:12px; } }
@@ -33,10 +40,7 @@ const GLOBAL_CSS = `
     transition:background .15s,border-color .15s,border-width .15s;
   }
   @media(max-width:640px){ .kanban-col{ min-height:unset; padding:12px; border-radius:12px; } }
-  .kanban-col.over {
-    background:var(--color-background-tertiary);
-    border-color:#E8500A; border-width:2px;
-  }
+  .kanban-col.over { background:var(--color-background-tertiary); border-color:#E8500A; border-width:2px; }
 
   .task-card {
     background:var(--color-background-primary);
@@ -145,10 +149,7 @@ const GLOBAL_CSS = `
   }
   .toast-undo-btn:hover{ background:rgba(255,255,255,.3); }
 
-  .skeleton{
-    background:var(--color-border); border-radius:8px;
-    animation:skeleton-pulse 1.4s ease-in-out infinite;
-  }
+  .skeleton{ background:var(--color-border); border-radius:8px; animation:sk-pulse 1.4s ease-in-out infinite; }
 
   @media(max-width:768px){
     .tasks-toolbar{ flex-direction:column; align-items:stretch !important; gap:10px; }
@@ -164,13 +165,16 @@ const GLOBAL_CSS = `
 function useGlobalStyle() {
   useEffect(() => {
     const id = 'xm-tasks-style';
-    if (document.getElementById(id)) return;
-    const s = document.createElement('style');
-    s.id = id; s.textContent = GLOBAL_CSS;
-    document.head.appendChild(s);
+    if (!document.getElementById(id)) {
+      const s = Object.assign(document.createElement('style'), { id, textContent: GLOBAL_CSS });
+      document.head.appendChild(s);
+    }
   }, []);
 }
 
+/* ════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ════════════════════════════════════════════════════════════ */
 const T = {
   bg1: 'var(--color-background-secondary)',
   bg2: 'var(--color-background-tertiary)',
@@ -192,10 +196,13 @@ const T = {
   sdrop: 'var(--shadow-dropdown)',
 };
 
+/* ════════════════════════════════════════════════════════════
+   CONSTANTES
+   ════════════════════════════════════════════════════════════ */
 const PRIORITIES = [
-  { val:'high',   label:'Haute',   dot:'#E24B4A', color:'red'  },
-  { val:'medium', label:'Normale', dot:'#BA7517', color:'gold' },
-  { val:'low',    label:'Basse',   dot:'#378ADD', color:'blue' },
+  { val:'high',   label:'Haute',   dot:'#E24B4A' },
+  { val:'medium', label:'Normale', dot:'#BA7517' },
+  { val:'low',    label:'Basse',   dot:'#378ADD' },
 ];
 
 const COL_CFG = {
@@ -203,6 +210,7 @@ const COL_CFG = {
   inprogress: { label:'En cours', dot:'var(--color-warning)'    },
   done:       { label:'Terminé',  dot:'var(--color-success)'    },
 };
+
 const COL_ORDER = { todo:0, inprogress:1, done:2 };
 
 const STATUT_TO_COL = {
@@ -211,9 +219,8 @@ const STATUT_TO_COL = {
   termine:'done', annule:'todo',
 };
 
-const COL_TO_STATUT = {
-  todo:'todo', inprogress:'inprogress', done:'done',
-};
+const COL_TO_STATUT_TACHE  = { todo:'todo',    inprogress:'inprogress', done:'done'    };
+const COL_TO_STATUT_ACTION = { todo:'a_faire', inprogress:'en_cours',   done:'termine' };
 
 const TAB_CFG = [
   { key:'all',        label:'Toutes',    dot:null                         },
@@ -223,38 +230,113 @@ const TAB_CFG = [
 ];
 
 const STAT_CFG = [
-  { key:'todo',       label:'À faire',  color:'var(--color-text-muted)' },
-  { key:'inprogress', label:'En cours', color:'var(--color-warning)'    },
-  { key:'done',       label:'Terminées',color:'var(--color-success)'    },
+  { key:'todo',       label:'À faire',   color:'var(--color-text-muted)' },
+  { key:'inprogress', label:'En cours',  color:'var(--color-warning)'    },
+  { key:'done',       label:'Terminées', color:'var(--color-success)'    },
 ];
 
-const ROLES_ADMIN      = ['Super Admin','Admin Entreprise','super_admin','admin'];
-const ROLES_MANAGER    = ['Manager','manager'];
-const ROLES_DIRECTEUR  = ['Directeur','directeur'];
-const ROLES_SUPERVISEUR= [...ROLES_ADMIN,...ROLES_MANAGER,'Assistant','Assistante','assistant','assistante'];
+const ROLES_ADMIN       = ['Super Admin','Admin Entreprise','super_admin','admin'];
+const ROLES_MANAGER     = ['Manager','manager'];
+const ROLES_DIRECTEUR   = ['Directeur','directeur'];
+const ROLES_SUPERVISEUR = [...ROLES_ADMIN,...ROLES_MANAGER,'Assistant','Assistante','assistant','assistante'];
 
+/* ════════════════════════════════════════════════════════════
+   ICÔNES ARTISANALES
+   ════════════════════════════════════════════════════════════ */
 const Ic = {
-  plus:   () => <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
-  search: () => <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
-  close:  () => <svg width="9"  height="9"  viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
-  check:  () => <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  list:   () => <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
-  kanban: () => <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="4" height="14" rx="1" stroke="currentColor" strokeWidth="1.4"/><rect x="6" y="1" width="4" height="9"  rx="1" stroke="currentColor" strokeWidth="1.4"/><rect x="11" y="1" width="4" height="12" rx="1" stroke="currentColor" strokeWidth="1.4"/></svg>,
-  cal:    () => <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M5 1v3M11 1v3M2 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
-  user:   () => <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.4"/><path d="M2 14c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
-  cr:     () => <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
-  lock:   () => <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
+  plus: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <path d="M8 2V14" stroke="currentColor" strokeWidth="2" strokeLinecap="square"/>
+      <path d="M2 8H14" stroke="currentColor" strokeWidth="2" strokeLinecap="square"/>
+      <path d="M6.5 2H9.5M6.5 14H9.5" stroke="currentColor" strokeWidth="1" strokeLinecap="butt"/>
+    </svg>
+  ),
+  search: () => (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M4.8 5C5.2 4.2 6 3.7 7 3.8" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity=".45"/>
+      <path d="M10 10.2L14.2 14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
+    </svg>
+  ),
+  close: () => (
+    <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+      <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  ),
+  check: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M3 8.5L6.5 12" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity=".3"/>
+    </svg>
+  ),
+  list: () => (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+      <path d="M3 4H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M3 12H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="1.5" cy="4"  r="0.9" fill="currentColor"/>
+      <circle cx="1.5" cy="8"  r="0.9" fill="currentColor"/>
+      <circle cx="1.5" cy="12" r="0.9" fill="currentColor"/>
+    </svg>
+  ),
+  kanban: () => (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="1"  width="4" height="13" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+      <rect x="6" y="1"  width="4" height="8"  rx="1" stroke="currentColor" strokeWidth="1.4"/>
+      <rect x="11" y="1" width="4" height="11" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M3 4H3.5M8 4H8.5M13 4H13.5" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" opacity=".4"/>
+    </svg>
+  ),
+  cal: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <rect x="1.5" y="3" width="13" height="11.5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M1.5 7.5H14.5" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M5 1.5V4.5M11 1.5V4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      <rect x="4" y="9.5" width="2.5" height="2" rx="0.4" fill="currentColor"/>
+      <rect x="9.5" y="9.5" width="2.5" height="2" rx="0.4" fill="currentColor"/>
+    </svg>
+  ),
+  user: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M4.5 5C4.8 3.5 6.2 2.5 8 2.5" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" opacity=".35"/>
+      <path d="M2 14c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  ),
+  cr: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="1" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+      <path d="M2.5 3.5L3.5 2.5" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" opacity=".4"/>
+    </svg>
+  ),
+  lock: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="8" cy="11" r="1.2" fill="currentColor"/>
+    </svg>
+  ),
+  lightning: () => (
+    <svg width="9" height="9" viewBox="0 0 16 16" fill="none">
+      <path d="M2.5 1.5L10.5 10.5H6L7 14.5L13.5 5.5H9L10.5 1.5L2.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+    </svg>
+  ),
 };
 
+/* ════════════════════════════════════════════════════════════
+   HELPERS
+   ════════════════════════════════════════════════════════════ */
 function getDueStatus(dueDateStr, isDone) {
   if (isDone || !dueDateStr) return null;
-  const due = /^\d{4}-\d{2}-\d{2}/.test(dueDateStr)
-    ? new Date(dueDateStr)
-    : (() => {
-        const months = { janvier:0,février:1,mars:2,avril:3,mai:4,juin:5,juillet:6,août:7,septembre:8,octobre:9,novembre:10,décembre:11 };
-        const [d, m, y] = dueDateStr.toLowerCase().split(' ');
-        return new Date(+y, months[m], +d);
-      })();
+  let due;
+  if (/^\d{4}-\d{2}-\d{2}/.test(dueDateStr)) {
+    due = new Date(dueDateStr);
+  } else {
+    const months = { janvier:0,février:1,mars:2,avril:3,mai:4,juin:5,juillet:6,août:7,septembre:8,octobre:9,novembre:10,décembre:11 };
+    const [d, m, y] = dueDateStr.toLowerCase().split(' ');
+    due = new Date(+y, months[m], +d);
+  }
   if (isNaN(due)) return null;
   const today = new Date(); today.setHours(0,0,0,0);
   const diff  = Math.ceil((due - today) / 86400000);
@@ -263,78 +345,69 @@ function getDueStatus(dueDateStr, isDone) {
   return               { status:'on-track',  days: diff };
 }
 
-function normalizeTache(t) {
-  return {
-    id:          `tache_${t.tache_id ?? t.id}`,
-    title:       t.tache_titre    ?? '',
-    assignee:    t.user ? `${t.user.util_prenom} ${t.user.util_nom}`.trim() : '',
-    user_id:     t.user_id != null ? Number(t.user_id) : null,
-    dept_id:     t.dept_id != null ? Number(t.dept_id) : null,
-    due:         t.tache_echeance ?? '',
-    priority:    t.tache_priorite ?? 'medium',
-    source:      'tache',
-    colKey:      STATUT_TO_COL[t.tache_colonne] ?? 'todo',
-    description: t.description ?? '',
-  };
-}
+const normalizeTache = t => ({
+  id:          `tache_${t.tache_id ?? t.id}`,
+  title:       t.tache_titre    ?? '',
+  assignee:    t.user ? `${t.user.util_prenom} ${t.user.util_nom}`.trim() : '',
+  user_id:     t.user_id   != null ? Number(t.user_id)  : null,
+  dept_id:     t.dept_id   != null ? Number(t.dept_id)  : null,
+  due:         t.tache_echeance ?? '',
+  priority:    t.tache_priorite ?? 'medium',
+  source:      'tache',
+  colKey:      STATUT_TO_COL[t.tache_colonne] ?? 'todo',
+  description: t.description ?? '',
+});
 
-function normalizeAction(a) {
-  return {
-    id:          `action_${a.action_id ?? a.id}`,
-    title:       a.action_texte ?? '',
-    assignee:    a.assignee     ?? '',
-    user_id:     a.user_id != null ? Number(a.user_id) : null,
-    due:         a.action_echeance ?? '',
-    priority:    'medium',
-    source:      'action',
-    reunion:     a.reunion ?? null,
-    description: a.reunion ? `Action issue de la réunion : ${a.reunion}` : '',
-    colKey:      STATUT_TO_COL[a.action_statut] ?? 'todo',
-  };
-}
+const normalizeAction = a => ({
+  id:          `action_${a.action_id ?? a.id}`,
+  title:       a.action_texte    ?? '',
+  assignee:    a.assignee        ?? '',
+  user_id:     a.user_id != null ? Number(a.user_id) : null,
+  due:         a.action_echeance ?? '',
+  priority:    'medium',
+  source:      'action',
+  reunion:     a.reunion ?? null,
+  description: a.reunion ? `Action issue de la réunion : ${a.reunion}` : '',
+  colKey:      STATUT_TO_COL[a.action_statut] ?? 'todo',
+});
 
-function repartir(items) {
-  return {
-    todo:       items.filter(t => t.colKey === 'todo'),
-    inprogress: items.filter(t => t.colKey === 'inprogress'),
-    done:       items.filter(t => t.colKey === 'done'),
-  };
-}
+const repartir = items => ({
+  todo:       items.filter(t => t.colKey === 'todo'),
+  inprogress: items.filter(t => t.colKey === 'inprogress'),
+  done:       items.filter(t => t.colKey === 'done'),
+});
 
-function useHover() {
+const useHover = () => {
   const [h, set] = useState(false);
   return [h, { onMouseEnter:()=>set(true), onMouseLeave:()=>set(false) }];
-}
+};
 
 function useInsights(tasks) {
   return useMemo(() => {
     const all = [...tasks.todo, ...tasks.inprogress, ...tasks.done];
-    const byCol = {
-      todo:       tasks.todo.length,
-      inprogress: tasks.inprogress.length,
-      done:       tasks.done.length,
+    return {
+      total:    all.length,
+      byCol:    { todo: tasks.todo.length, inprogress: tasks.inprogress.length, done: tasks.done.length },
+      overdue:  all.filter(t => getDueStatus(t.due, t.colKey === 'done')?.status === 'overdue').length,
+      dueSoon:  all.filter(t => getDueStatus(t.due, t.colKey === 'done')?.status === 'due-soon').length,
+      nextDue:  [...tasks.todo, ...tasks.inprogress].filter(t => t.due).sort((a,b) => a.due.localeCompare(b.due))[0] || null,
     };
-    const total   = all.length;
-    const overdue = all.filter(t => getDueStatus(t.due, t.colKey === 'done')?.status === 'overdue').length;
-    const dueSoon = all.filter(t => getDueStatus(t.due, t.colKey === 'done')?.status === 'due-soon').length;
-    const nextDue = tasks.todo
-      .concat(tasks.inprogress)
-      .filter(t => t.due)
-      .sort((a,b) => a.due.localeCompare(b.due))[0] || null;
-    return { total, byCol, overdue, dueSoon, nextDue };
   }, [tasks]);
 }
 
+/* ════════════════════════════════════════════════════════════
+   ATOMS
+   ════════════════════════════════════════════════════════════ */
 function PrimaryBtn({ children, onClick, disabled, small, loading }) {
   const [h, hp] = useHover();
   return (
-    <button onClick={onClick} disabled={disabled||loading} {...hp} style={{
+    <button onClick={onClick} disabled={disabled || loading} {...hp} style={{
       display:'inline-flex', alignItems:'center', gap:6,
       padding: small ? '6px 14px' : '9px 18px',
       borderRadius:T.r8, border:'none',
-      background: disabled||loading ? T.t3 : h ? T.acc2 : T.acc,
+      background: disabled || loading ? T.t3 : h ? T.acc2 : T.acc,
       color:'#fff', fontSize: small ? 12 : 13, fontWeight:700,
-      cursor: disabled||loading ? 'not-allowed' : 'pointer',
+      cursor: disabled || loading ? 'not-allowed' : 'pointer',
       opacity: disabled ? .6 : 1,
       fontFamily:'var(--font-sans)', transition:'all .15s',
       boxShadow: h && !disabled ? `0 4px 20px ${T.acc}55` : `0 2px 8px ${T.acc}33`,
@@ -359,13 +432,16 @@ function GhostBtn({ children, onClick, small, disabled }) {
   );
 }
 
+/* ════════════════════════════════════════════════════════════
+   STATS ROW
+   ════════════════════════════════════════════════════════════ */
 function StatsRow({ insights }) {
   return (
     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:20 }}>
       {STAT_CFG.map(({ key, label, color }) => {
         const n   = insights.byCol[key] || 0;
         const pct = insights.total > 0 ? Math.round(n / insights.total * 100) : 0;
-        return <StatCard key={key} value={n} label={label} color={color} pct={pct} />;
+        return <StatCard key={key} value={n} label={label} color={color} pct={pct}/>;
       })}
     </div>
   );
@@ -374,12 +450,7 @@ function StatsRow({ insights }) {
 function StatCard({ value, label, color, pct }) {
   const [h, hp] = useHover();
   return (
-    <div {...hp} style={{
-      background:T.bg1, border:`1px solid ${h ? T.bd1 : T.bd0}`,
-      borderRadius:T.r12, padding:'14px 16px',
-      transition:'border-color .15s, box-shadow .15s',
-      boxShadow: h ? T.sdrop : 'none',
-    }}>
+    <div {...hp} style={{ background:T.bg1, border:`1px solid ${h ? T.bd1 : T.bd0}`, borderRadius:T.r12, padding:'14px 16px', transition:'border-color .15s, box-shadow .15s', boxShadow:h?T.sdrop:'none' }}>
       <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:10 }}>
         <span style={{ fontSize:26, fontWeight:700, color:T.t1, letterSpacing:'-1px', lineHeight:1 }}>{value}</span>
         <span style={{ fontSize:11, color:T.t3, fontFamily:'var(--font-mono)', marginBottom:2 }}>{pct}%</span>
@@ -395,12 +466,14 @@ function StatCard({ value, label, color, pct }) {
   );
 }
 
+/* ════════════════════════════════════════════════════════════
+   TAB BAR
+   ════════════════════════════════════════════════════════════ */
 function TabBar({ active, setActive, counts }) {
   return (
     <div style={{ display:'flex', gap:2, borderBottom:`1px solid ${T.bd0}`, marginBottom:20 }}>
       {TAB_CFG.map(({ key, label, dot }) => {
         const isActive = active === key;
-        const n = counts[key] ?? 0;
         return (
           <button key={key} onClick={() => setActive(key)} style={{
             background:'none', border:'none', cursor:'pointer',
@@ -419,7 +492,7 @@ function TabBar({ active, setActive, counts }) {
               background: isActive ? T.bg3 : T.bg1,
               color: isActive ? T.t1 : T.t3,
               transition:'background .15s',
-            }}>{n}</span>
+            }}>{counts[key] ?? 0}</span>
           </button>
         );
       })}
@@ -427,6 +500,9 @@ function TabBar({ active, setActive, counts }) {
   );
 }
 
+/* ════════════════════════════════════════════════════════════
+   FILTERS BAR
+   ════════════════════════════════════════════════════════════ */
 function FiltersBar({ query, setQuery, priorityFilter, setPriority, activeCount }) {
   const hasActive = query !== '' || priorityFilter !== null;
   return (
@@ -434,66 +510,42 @@ function FiltersBar({ query, setQuery, priorityFilter, setPriority, activeCount 
       <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
         <div style={{ position:'relative', flex:'1 1 200px', minWidth:0 }}>
           <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:T.t3, lineHeight:0 }}>
-            <Ic.search />
+            <Ic.search/>
           </span>
           <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
+            value={query} onChange={e => setQuery(e.target.value)}
             placeholder="Rechercher une tâche…"
-            style={{
-              width:'100%', background:T.bg1, border:`1px solid ${T.bd0}`,
-              borderRadius:T.r8, padding:'0 32px 0 32px', height:34,
-              color:T.t1, fontSize:12.5, outline:'none',
-              fontFamily:'var(--font-sans)', boxSizing:'border-box',
-              transition:'border-color .13s, box-shadow .13s',
-            }}
+            style={{ width:'100%', background:T.bg1, border:`1px solid ${T.bd0}`, borderRadius:T.r8, padding:'0 32px', height:34, color:T.t1, fontSize:12.5, outline:'none', fontFamily:'var(--font-sans)', boxSizing:'border-box', transition:'border-color .13s, box-shadow .13s' }}
             onFocus={e => { e.target.style.borderColor=T.bd2; e.target.style.boxShadow=`0 0 0 3px ${T.accm}`; }}
             onBlur={e  => { e.target.style.borderColor=T.bd0; e.target.style.boxShadow='none'; }}
           />
           {query && (
-            <button onClick={() => setQuery('')} style={{
-              position:'absolute', right:8, top:'50%', transform:'translateY(-50%)',
-              background:'none', border:'none', cursor:'pointer', color:T.t3, lineHeight:0, padding:2,
-            }}><Ic.close /></button>
+            <button onClick={() => setQuery('')} style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:T.t3, lineHeight:0, padding:2 }}>
+              <Ic.close/>
+            </button>
           )}
         </div>
         <div style={{ display:'flex', gap:6, flexShrink:0, flexWrap:'wrap' }}>
-          <button onClick={() => setPriority(null)} style={{
-            padding:'5px 12px', borderRadius:20, fontSize:11, fontWeight:700,
-            cursor:'pointer', border:`1px solid ${!priorityFilter ? T.acc : T.bd0}`,
-            background: !priorityFilter ? T.accm : 'transparent',
-            color: !priorityFilter ? T.acc : T.t3,
-          }}>Toutes</button>
+          <PillFilter active={!priorityFilter} label="Toutes" color={T.acc} onClick={() => setPriority(null)}/>
           {PRIORITIES.map(p => (
-            <button key={p.val} onClick={() => setPriority(priorityFilter === p.val ? null : p.val)} style={{
-              padding:'5px 12px', borderRadius:20, fontSize:11, fontWeight:700,
-              cursor:'pointer',
-              border: `1px solid ${priorityFilter === p.val ? p.dot : T.bd0}`,
-              background: priorityFilter === p.val ? p.dot + '22' : 'transparent',
-              color: priorityFilter === p.val ? p.dot : T.t3,
-            }}>{p.label}</button>
+            <PillFilter key={p.val} active={priorityFilter === p.val} label={p.label} color={p.dot} onClick={() => setPriority(priorityFilter === p.val ? null : p.val)}/>
           ))}
         </div>
         {hasActive && (
           <button
             onClick={() => { setQuery(''); setPriority(null); }}
-            style={{
-              display:'flex', alignItems:'center', gap:5, padding:'0 10px', height:34,
-              borderRadius:T.r8, border:`1px solid ${T.bd0}`, background:'transparent',
-              color:T.t3, fontSize:12, cursor:'pointer', fontFamily:'var(--font-sans)',
-              transition:'all .13s', whiteSpace:'nowrap',
-            }}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'0 10px', height:34, borderRadius:T.r8, border:`1px solid ${T.bd0}`, background:'transparent', color:T.t3, fontSize:12, cursor:'pointer', fontFamily:'var(--font-sans)', transition:'all .13s', whiteSpace:'nowrap' }}
             onMouseEnter={e => { e.currentTarget.style.color=T.t1; e.currentTarget.style.borderColor=T.bd1; }}
             onMouseLeave={e => { e.currentTarget.style.color=T.t3; e.currentTarget.style.borderColor=T.bd0; }}
           >
-            <Ic.close /> Réinitialiser
+            <Ic.close/> Réinitialiser
           </button>
         )}
       </div>
       {hasActive && (
         <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap', alignItems:'center' }}>
-          {priorityFilter && <FilterChip label={PRIORITIES.find(p => p.val === priorityFilter)?.label} onRemove={() => setPriority(null)} />}
-          {query && <FilterChip label={`"${query}"`} onRemove={() => setQuery('')} />}
+          {priorityFilter && <FilterChip label={PRIORITIES.find(p => p.val === priorityFilter)?.label} onRemove={() => setPriority(null)}/>}
+          {query          && <FilterChip label={`"${query}"`} onRemove={() => setQuery('')}/>}
           <span style={{ fontSize:11, color:T.t3 }}>{activeCount} résultat{activeCount !== 1 ? 's' : ''}</span>
         </div>
       )}
@@ -501,42 +553,43 @@ function FiltersBar({ query, setQuery, priorityFilter, setPriority, activeCount 
   );
 }
 
+function PillFilter({ active, label, color, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      padding:'5px 12px', borderRadius:20, fontSize:11, fontWeight:700, cursor:'pointer',
+      border:`1px solid ${active ? color : T.bd0}`,
+      background: active ? color + '22' : 'transparent',
+      color: active ? color : T.t3,
+    }}>{label}</button>
+  );
+}
+
 function FilterChip({ label, onRemove }) {
   return (
-    <span style={{
-      display:'inline-flex', alignItems:'center', gap:6,
-      padding:'2px 8px 2px 10px', borderRadius:T.r20,
-      background:T.accm, border:`1px solid ${T.accb}`,
-      fontSize:11, fontWeight:500, color:T.acc,
-    }}>
+    <span style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'2px 8px 2px 10px', borderRadius:T.r20, background:T.accm, border:`1px solid ${T.accb}`, fontSize:11, fontWeight:500, color:T.acc }}>
       {label}
-      <button onClick={onRemove} style={{
-        background:'none', border:'none', cursor:'pointer',
-        color:T.acc, lineHeight:0, padding:1, opacity:.7, transition:'opacity .1s',
-      }}
+      <button onClick={onRemove} style={{ background:'none', border:'none', cursor:'pointer', color:T.acc, lineHeight:0, padding:1, opacity:.7, transition:'opacity .1s' }}
         onMouseEnter={e => e.currentTarget.style.opacity='1'}
-        onMouseLeave={e => e.currentTarget.style.opacity='.7'}
-      ><Ic.close /></button>
+        onMouseLeave={e => e.currentTarget.style.opacity='.7'}>
+        <Ic.close/>
+      </button>
     </span>
   );
 }
 
+/* ════════════════════════════════════════════════════════════
+   EMPTY STATE / SKELETON
+   ════════════════════════════════════════════════════════════ */
 function EmptyState({ hasFilters }) {
   return (
     <div style={{ textAlign:'center', padding:'72px 24px', background:T.bg1, borderRadius:16, border:`1px solid ${T.bd0}` }}>
-      <div style={{
-        width:52, height:52, borderRadius:14,
-        background:T.accm, border:`1px solid ${T.accb}`,
-        display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px',
-      }}>
+      <div style={{ width:52, height:52, borderRadius:14, background:T.accm, border:`1px solid ${T.accb}`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px' }}>
         <svg width="24" height="24" viewBox="0 0 22 22" fill="none">
           <rect x="1" y="2" width="20" height="18" rx="3" stroke={T.acc} strokeWidth="1.6"/>
           <path d="M6 7h10M6 11h10M6 15h5" stroke={T.acc} strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
       </div>
-      <p style={{ fontSize:14, fontWeight:600, color:T.t1, marginBottom:6 }}>
-        {hasFilters ? 'Aucun résultat' : 'Aucune tâche'}
-      </p>
+      <p style={{ fontSize:14, fontWeight:600, color:T.t1, marginBottom:6 }}>{hasFilters ? 'Aucun résultat' : 'Aucune tâche'}</p>
       <p style={{ fontSize:13, color:T.t3, maxWidth:300, margin:'0 auto', lineHeight:1.7 }}>
         {hasFilters ? 'Modifiez vos filtres ou votre recherche.' : 'Créez votre première tâche.'}
       </p>
@@ -544,38 +597,33 @@ function EmptyState({ hasFilters }) {
   );
 }
 
-function SkeletonCard() {
-  return (
-    <div style={{ background:T.bg1, border:`1px solid ${T.bd0}`, borderRadius:12, padding:16, marginBottom:10 }}>
-      <div className="skeleton" style={{ height:10, width:'55%', marginBottom:12 }}/>
-      <div className="skeleton" style={{ height:14, width:'85%', marginBottom:8 }}/>
-      <div className="skeleton" style={{ height:10, width:'35%' }}/>
-    </div>
-  );
-}
+const SkeletonCard = () => (
+  <div style={{ background:T.bg1, border:`1px solid ${T.bd0}`, borderRadius:12, padding:16, marginBottom:10 }}>
+    <div className="skeleton" style={{ height:10, width:'55%', marginBottom:12 }}/>
+    <div className="skeleton" style={{ height:14, width:'85%', marginBottom:8 }}/>
+    <div className="skeleton" style={{ height:10, width:'35%' }}/>
+  </div>
+);
 
-function DueBadge({ due }) {
+const DueBadge = ({ due }) => {
   if (!due) return null;
-  const label =
-    due.status === 'overdue'  ? `${due.days}j de retard` :
-    due.status === 'due-soon' ? (due.days === 0 ? "Aujourd'hui" : `Dans ${due.days}j`) :
-    'À jour';
+  const label = due.status === 'overdue'  ? `${due.days}j de retard`
+              : due.status === 'due-soon' ? (due.days === 0 ? "Aujourd'hui" : `Dans ${due.days}j`)
+              : 'À jour';
   return <span className={`due-badge ${due.status}`}>{label}</span>;
-}
+};
 
 function ViewSwitcher({ view, setView }) {
   return (
     <div style={{ display:'flex', gap:2, background:T.bg1, padding:3, borderRadius:10, border:`1px solid ${T.bd0}`, flexShrink:0 }}>
-      {[{ key:'Kanban', icon:<Ic.kanban /> }, { key:'Liste', icon:<Ic.list /> }].map(({ key, icon }) => {
+      {[{ key:'Kanban', icon:<Ic.kanban/> }, { key:'Liste', icon:<Ic.list/> }].map(({ key, icon }) => {
         const active = view === key;
         return (
           <button key={key} onClick={() => setView(key)} style={{
-            display:'flex', alignItems:'center', gap:5,
-            padding:'5px 10px', borderRadius:7, border:'none', cursor:'pointer',
+            display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:7, border:'none', cursor:'pointer',
             background: active ? T.acc : 'transparent',
             color: active ? '#fff' : T.t3,
-            fontSize:12, fontWeight:600, transition:'.2s', whiteSpace:'nowrap',
-            fontFamily:'var(--font-sans)',
+            fontSize:12, fontWeight:600, transition:'.2s', whiteSpace:'nowrap', fontFamily:'var(--font-sans)',
           }}>
             {icon}{key}
           </button>
@@ -585,6 +633,9 @@ function ViewSwitcher({ view, setView }) {
   );
 }
 
+/* ════════════════════════════════════════════════════════════
+   TASK CARD
+   ════════════════════════════════════════════════════════════ */
 const TaskCard = memo(function TaskCard({ task, colKey, index, canDrag, isMobile, draggingId, onDragStart, onDragEnd, onDragOver, onClick, onMoveLeft, onMoveRight, isFirst, isLast }) {
   const isDone   = colKey === 'done';
   const isAction = task.source === 'action';
@@ -595,59 +646,35 @@ const TaskCard = memo(function TaskCard({ task, colKey, index, canDrag, isMobile
   return (
     <div
       draggable={canDrag && !isMobile}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDragOver={onDragOver}
+      onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver}
       onClick={onClick}
       style={{ animationDelay:`${index * 25}ms` }}
-      className={[
-        'task-card interactive',
-        draggingId === task.id ? 'dragging' : '',
-        due?.status === 'overdue'  ? 'overdue'  : '',
-        due?.status === 'due-soon' ? 'due-soon' : '',
-        isNext ? 'is-next' : '',
-      ].filter(Boolean).join(' ')}
+      className={['task-card interactive', draggingId===task.id?'dragging':'', due?.status==='overdue'?'overdue':'', due?.status==='due-soon'?'due-soon':'', isNext?'is-next':''].filter(Boolean).join(' ')}
     >
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8, gap:8 }}>
         <div style={{ display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0 }}>
           {isNext && (
-            <span style={{
-              display:'inline-flex', alignItems:'center', gap:4,
-              padding:'1px 7px', borderRadius:T.r20,
-              background:T.accm, border:`1px solid ${T.accb}`,
-              fontSize:9, fontWeight:700, color:T.acc, whiteSpace:'nowrap', flexShrink:0,
-            }}>⚡ Prochain</span>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'1px 7px', borderRadius:T.r20, background:T.accm, border:`1px solid ${T.accb}`, fontSize:9, fontWeight:700, color:T.acc, whiteSpace:'nowrap', flexShrink:0 }}>
+              <Ic.lightning/>Prochain
+            </span>
           )}
-          {isAction && <span className="src-badge cr"><Ic.cr /> CR</span>}
+          {isAction && <span className="src-badge cr"><Ic.cr/> CR</span>}
         </div>
-        {priority && (
-          <span style={{ width:8, height:8, borderRadius:'50%', background:priority.dot, flexShrink:0, marginTop:3 }}/>
-        )}
+        {priority && <span style={{ width:8, height:8, borderRadius:'50%', background:priority.dot, flexShrink:0, marginTop:3 }}/>}
       </div>
 
-      <p style={{
-        fontSize:13.5, fontWeight:600, margin:'0 0 6px', lineHeight:1.4,
-        color:T.t1, overflow:'hidden', textOverflow:'ellipsis',
-        display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical',
-      }}>
+      <p style={{ fontSize:13.5, fontWeight:600, margin:'0 0 6px', lineHeight:1.4, color:T.t1, overflow:'hidden', textOverflow:'ellipsis', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>
         {task.title}
       </p>
 
       {isAction && task.reunion && (
-        <p style={{ fontSize:11, color:T.acc, margin:'0 0 8px', fontStyle:'italic', lineHeight:1.4 }}>
-          <Ic.cal /> {task.reunion}
+        <p style={{ fontSize:11, color:T.acc, margin:'0 0 8px', fontStyle:'italic', lineHeight:1.4, display:'flex', alignItems:'center', gap:4 }}>
+          <Ic.cal/> {task.reunion}
         </p>
       )}
 
       {priority && (
-        <span style={{
-          display:'inline-flex', alignItems:'center', gap:4,
-          fontSize:10, fontWeight:600, color:priority.dot,
-          padding:'2px 8px', borderRadius:T.r20,
-          background: priority.dot + '18',
-          border:`1px solid ${priority.dot}44`,
-          marginBottom:8,
-        }}>
+        <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:10, fontWeight:600, color:priority.dot, padding:'2px 8px', borderRadius:T.r20, background:priority.dot+'18', border:`1px solid ${priority.dot}44`, marginBottom:8 }}>
           {priority.label}
         </span>
       )}
@@ -655,42 +682,21 @@ const TaskCard = memo(function TaskCard({ task, colKey, index, canDrag, isMobile
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginTop:10 }}>
         <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
           {task.due && (
-            <span style={{
-              fontSize:10, color:T.t3, display:'flex', alignItems:'center', gap:4,
-              ...(due?.status === 'overdue'  ? { color:'#E24B4A', fontWeight:700 } : {}),
-              ...(due?.status === 'due-soon' ? { color:'#BA7517', fontWeight:700 } : {}),
-            }}>
-              <Ic.cal /> {task.due}
+            <span style={{ fontSize:10, color:T.t3, display:'flex', alignItems:'center', gap:4, ...(due?.status==='overdue'?{color:'#E24B4A',fontWeight:700}:{}), ...(due?.status==='due-soon'?{color:'#BA7517',fontWeight:700}:{}) }}>
+              <Ic.cal/> {task.due}
             </span>
           )}
-          {due && <DueBadge due={due} />}
+          {due && <DueBadge due={due}/>}
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           {isMobile && canDrag && (
             <div style={{ display:'flex', gap:4 }} onClick={e => e.stopPropagation()}>
-              {!isFirst && (
-                <button onClick={onMoveLeft} style={{
-                  width:24, height:24, borderRadius:6,
-                  border:`1px solid ${T.bd0}`, background:T.bg1,
-                  color:T.t3, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:12,
-                }}>←</button>
-              )}
-              {!isLast && (
-                <button onClick={onMoveRight} style={{
-                  width:24, height:24, borderRadius:6,
-                  border:`1px solid ${T.acc}`, background:T.accm,
-                  color:T.acc, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:12,
-                }}>→</button>
-              )}
+              {!isFirst && <button onClick={onMoveLeft}  style={{ width:24, height:24, borderRadius:6, border:`1px solid ${T.bd0}`, background:T.bg1, color:T.t3, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:12 }}>←</button>}
+              {!isLast  && <button onClick={onMoveRight} style={{ width:24, height:24, borderRadius:6, border:`1px solid ${T.acc}`, background:T.accm, color:T.acc, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:12 }}>→</button>}
             </div>
           )}
           {task.assignee && (
-            <div style={{
-              width:24, height:24, borderRadius:'50%',
-              background: isAction ? T.acc : '#378ADD',
-              color:'#fff', display:'flex', alignItems:'center',
-              justifyContent:'center', fontSize:10, fontWeight:800, flexShrink:0,
-            }}>
+            <div style={{ width:24, height:24, borderRadius:'50%', background:isAction?T.acc:'#378ADD', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, flexShrink:0 }}>
               {task.assignee[0]?.toUpperCase()}
             </div>
           )}
@@ -700,52 +706,30 @@ const TaskCard = memo(function TaskCard({ task, colKey, index, canDrag, isMobile
   );
 });
 
-/* ═══════════════════════════════════════════════════════════════
-   MODAL — LECTURE / ÉDITION
-   ═══════════════════════════════════════════════════════════════ */
-function EditModal({
-  open, task, isMobile,
-  estAdminPur, estManager, estDirecteur,
-  user, peutModifier,                     // ← peutModifier reçu en prop
-  onClose, onSave, onMoveAction, setTask,
-}) {
+/* ════════════════════════════════════════════════════════════
+   EDIT MODAL
+   ════════════════════════════════════════════════════════════ */
+function EditModal({ open, task, isMobile, estAdminPur, estManager, user, peutModifier, onClose, onSave, onMoveAction, setTask }) {
   if (!task) return null;
-
   const isAction = task.source === 'action';
-
-  // ✅ Admin ou manager du même département → peut modifier
-  // ✅ Employé assigné → lecture seule (ne peut que déplacer via kanban)
   const canEdit  = peutModifier(task);
   const readOnly = !canEdit;
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={readOnly ? 'Détails de la tâche' : 'Modifier la tâche'}
-      width={isMobile ? '95vw' : 800}
-    >
+    <Modal open={open} onClose={onClose} title={readOnly ? 'Détails de la tâche' : 'Modifier la tâche'} width={isMobile ? '95vw' : 800}>
       <div className="modal-grid">
         <div className="modal-main">
 
-          {/* ── Bannière lecture seule ── */}
           {readOnly && !isAction && (
-            <div style={{
-              display:'flex', alignItems:'center', gap:10,
-              padding:'10px 14px', borderRadius:10,
-              background:T.bg2, border:`1px solid ${T.bd0}`,
-              fontSize:12, color:T.t3,
-            }}>
-              <Ic.lock />
-              Consultation uniquement — seul le manager du département ou un administrateur peut modifier cette tâche.
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderRadius:10, background:T.bg2, border:`1px solid ${T.bd0}`, fontSize:12, color:T.t3 }}>
+              <Ic.lock/> Consultation uniquement — seul le manager du département ou un administrateur peut modifier cette tâche.
             </div>
           )}
 
-          {/* ── Bannière action CR ── */}
           {isAction && (
             <div style={{ padding:'12px 16px', borderRadius:10, background:'#FFF0E8', border:'1px solid #FDBA8C' }}>
               <p style={{ fontSize:12, fontWeight:700, color:T.acc, margin:'0 0 4px', display:'flex', alignItems:'center', gap:6 }}>
-                <Ic.cr /> Action issue d'un compte rendu
+                <Ic.cr/> Action issue d'un compte rendu
               </p>
               <p style={{ fontSize:12, color:'#854F0B', margin:0, lineHeight:1.55 }}>
                 Lecture seule ici — gérez-la depuis la réunion.
@@ -754,7 +738,6 @@ function EditModal({
             </div>
           )}
 
-          {/* ── Titre ── */}
           {!isAction && (
             readOnly ? (
               <div>
@@ -762,54 +745,38 @@ function EditModal({
                 <p style={{ fontSize:14, fontWeight:600, color:T.t1, margin:0, lineHeight:1.4 }}>{task.title}</p>
               </div>
             ) : (
-              <Input label="TITRE" value={task.title} onChange={e => setTask({ ...task, title:e.target.value })} />
+              <Input label="TITRE" value={task.title} onChange={e => setTask({ ...task, title:e.target.value })}/>
             )
           )}
 
-          {/* ── Description ── */}
           <div>
             <label className="modal-label">DESCRIPTION</label>
             {readOnly ? (
               <p style={{ fontSize:13, color:T.t2, margin:0, lineHeight:1.7, whiteSpace:'pre-wrap' }}>
-                {task.description
-                  ? task.description
-                  : <span style={{ color:T.t3, fontStyle:'italic' }}>Aucune description</span>
-                }
+                {task.description || <span style={{ color:T.t3, fontStyle:'italic' }}>Aucune description</span>}
               </p>
             ) : (
               <textarea
-                value={task.description || ''}
-                onChange={e => setTask({ ...task, description:e.target.value })}
+                value={task.description || ''} onChange={e => setTask({ ...task, description:e.target.value })}
                 placeholder="Ajoutez des détails…"
-                style={{
-                  width:'100%', minHeight:110, padding:12, borderRadius:8,
-                  border:`1px solid ${T.bd0}`,
-                  background:'var(--color-background-primary)',
-                  color:T.t1, fontFamily:'inherit', fontSize:13,
-                  resize:'vertical', boxSizing:'border-box', outline:'none',
-                }}
+                style={{ width:'100%', minHeight:110, padding:12, borderRadius:8, border:`1px solid ${T.bd0}`, background:'var(--color-background-primary)', color:T.t1, fontFamily:'inherit', fontSize:13, resize:'vertical', boxSizing:'border-box', outline:'none' }}
               />
             )}
           </div>
         </div>
 
         <div className="modal-sidebar">
-          {/* ── Statut ── */}
           <div>
             <label className="modal-label">STATUT</label>
-            <p style={{ fontSize:12, fontWeight:700, color:T.acc, margin:0, textTransform:'uppercase' }}>
-              {COL_CFG[task.colKey]?.label}
-            </p>
+            <p style={{ fontSize:12, fontWeight:700, color:T.acc, margin:0, textTransform:'uppercase' }}>{COL_CFG[task.colKey]?.label}</p>
           </div>
 
-          {/* ── Échéance affichage ── */}
           <div>
             <label className="modal-label">ÉCHÉANCE</label>
             <p style={{ fontSize:13, margin:'0 0 5px', color:T.t3 }}>{task.due || '—'}</p>
-            <DueBadge due={getDueStatus(task.due, task.colKey === 'done')} />
+            <DueBadge due={getDueStatus(task.due, task.colKey === 'done')}/>
           </div>
 
-          {/* ── Priorité ── */}
           {!isAction && (
             <div>
               <label className="modal-label">PRIORITÉ</label>
@@ -817,70 +784,45 @@ function EditModal({
                 (() => {
                   const p = PRIORITIES.find(p => p.val === task.priority);
                   return p ? (
-                    <span style={{
-                      display:'inline-flex', alignItems:'center', gap:4,
-                      fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
-                      background: p.dot + '22', color:p.dot, border:`1px solid ${p.dot}44`,
-                    }}>{p.label}</span>
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background:p.dot+'22', color:p.dot, border:`1px solid ${p.dot}44` }}>{p.label}</span>
                   ) : <span style={{ color:T.t3 }}>—</span>;
                 })()
               ) : (
                 <div style={{ display:'flex', gap:6, marginTop:4, flexWrap:'wrap' }}>
                   {PRIORITIES.map(p => (
-                    <button key={p.val} onClick={() => setTask({ ...task, priority:p.val })} style={{
-                      padding:'4px 10px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer',
-                      border:`1px solid ${task.priority === p.val ? p.dot : T.bd0}`,
-                      background: task.priority === p.val ? p.dot + '22' : 'transparent',
-                      color: task.priority === p.val ? p.dot : T.t3,
-                    }}>{p.label}</button>
+                    <button key={p.val} onClick={() => setTask({ ...task, priority:p.val })} style={{ padding:'4px 10px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', border:`1px solid ${task.priority===p.val?p.dot:T.bd0}`, background:task.priority===p.val?p.dot+'22':'transparent', color:task.priority===p.val?p.dot:T.t3 }}>{p.label}</button>
                   ))}
                 </div>
               )}
             </div>
           )}
 
-          {/* ── Échéance édition ── */}
           {!isAction && !readOnly && (
-            <Input label="MODIFIER L'ÉCHÉANCE" value={task.due} onChange={e => setTask({ ...task, due:e.target.value })} />
+            <Input label="MODIFIER L'ÉCHÉANCE" value={task.due} onChange={e => setTask({ ...task, due:e.target.value })}/>
           )}
 
-          {/* ── Responsable ── */}
           <div>
             <label className="modal-label">RESPONSABLE</label>
             <p style={{ fontSize:13, color:T.t3, margin:0 }}>{task.assignee || '—'}</p>
           </div>
 
-          {/* ── Actions ── */}
           <div className="modal-sidebar-actions">
-
-            {/* Déplacer les actions CR */}
             {isAction && (estAdminPur || estManager || Number(task.user_id) === Number(user?.id)) && (
               <>
                 {task.colKey !== 'inprogress' && task.colKey !== 'done' && (
-                  <Button variant="primary" onClick={() => onMoveAction('inprogress')} style={{ width:'100%' }}>
-                    ▶ En cours
-                  </Button>
+                  <Button variant="primary" onClick={() => onMoveAction('inprogress')} style={{ width:'100%' }}>▶ En cours</Button>
                 )}
                 {task.colKey !== 'done' && (
-                  <Button variant="primary" onClick={() => onMoveAction('done')} style={{ width:'100%' }}>
-                    ✓ Terminé
-                  </Button>
+                  <Button variant="primary" onClick={() => onMoveAction('done')} style={{ width:'100%' }}>✓ Terminé</Button>
                 )}
                 {task.colKey === 'done' && (estAdminPur || estManager) && (
-                  <Button variant="ghost" onClick={() => onMoveAction('inprogress')} style={{ width:'100%' }}>
-                    ↩ Remettre en cours
-                  </Button>
+                  <Button variant="ghost" onClick={() => onMoveAction('inprogress')} style={{ width:'100%' }}>↩ Remettre en cours</Button>
                 )}
               </>
             )}
-
-            {/* Enregistrer — uniquement si canEdit */}
             {canEdit && (
-              <Button variant="primary" onClick={onSave} style={{ width:'100%' }}>
-                Enregistrer
-              </Button>
+              <Button variant="primary" onClick={onSave} style={{ width:'100%' }}>Enregistrer</Button>
             )}
-
             <Button variant="ghost" onClick={onClose} style={{ width:'100%' }}>Fermer</Button>
           </div>
         </div>
@@ -889,9 +831,9 @@ function EditModal({
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
    PAGE PRINCIPALE
-   ═══════════════════════════════════════════════════════════════ */
+   ════════════════════════════════════════════════════════════ */
 export default function TasksPage() {
   useGlobalStyle();
   const { addToast } = useNotif();
@@ -936,9 +878,7 @@ export default function TasksPage() {
         fetch('/api/taches',      { headers:h }).then(r => r.ok ? r.json() : { data:[] }),
         fetch('/api/mes-actions', { headers:h }).then(r => r.ok ? r.json() : { data:[] }),
       ]);
-      const taches  = (tr.data ?? []).map(normalizeTache);
-      const actions = (ar.data ?? []).map(normalizeAction);
-      setTasks(repartir([...taches, ...actions]));
+      setTasks(repartir([...(tr.data ?? []).map(normalizeTache), ...(ar.data ?? []).map(normalizeAction)]));
     } catch {
       addToast('Erreur lors du chargement.', 'error');
     } finally {
@@ -950,96 +890,83 @@ export default function TasksPage() {
 
   const estAssigne = useCallback(t => !!user && Number(t.user_id) === Number(user.id), [user]);
 
-  // ─── Peut modifier le contenu de la tâche ───────────────────────────────
-  // Admin → toujours
-  // Manager → seulement si la tâche appartient à l'un de ses départements
-  // Employé assigné → NON (peut uniquement déplacer via kanban)
-// ─── Peut modifier le contenu de la tâche ───────────────────────────────
-const peutModifier = useCallback(t => {
-  if (!t || t.source === 'action') return false;
-  if (estAdminPur) return true;
-  // Manager → on laisse passer côté UI, le backend valide via la policy
-  // Si dept_ids est disponible, on affine ; sinon on fait confiance au backend
-  if (estManager) {
-    const deptIds = user?.dept_ids;
-    if (!deptIds || deptIds.length === 0) return true; // dept_ids absent → déléguer au backend
-    return t.dept_id != null && deptIds.map(Number).includes(Number(t.dept_id));
-  }
-  return false;
-}, [estAdminPur, estManager, user]);
+  const peutModifier = useCallback(t => {
+    if (!t || t.source === 'action') return false;
+    if (estAdminPur) return true;
+    if (estManager) {
+      const deptIds = user?.dept_ids;
+      if (!deptIds?.length) return true;
+      return t.dept_id != null && deptIds.map(Number).includes(Number(t.dept_id));
+    }
+    return false;
+  }, [estAdminPur, estManager, user]);
 
-// ─── Peut déplacer la tâche entre colonnes ──────────────────────────────
-const peutDragguer = useCallback(t => {
-  if (!t || estDirecteur) return false;
-  if (estAdminPur) return true;
-  if (estManager) {
-    const deptIds = user?.dept_ids;
-    if (!deptIds || deptIds.length === 0) return true; // dept_ids absent → déléguer au backend
-    return t.dept_id != null && deptIds.map(Number).includes(Number(t.dept_id));
-  }
-  return estAssigne(t);
-}, [estAdminPur, estDirecteur, estManager, estAssigne, user]);
+  const peutDragguer = useCallback(t => {
+    if (!t || estDirecteur) return false;
+    if (estAdminPur) return true;
+    if (estManager) {
+      const deptIds = user?.dept_ids;
+      if (!deptIds?.length) return true;
+      return t.dept_id != null && deptIds.map(Number).includes(Number(t.dept_id));
+    }
+    return estAssigne(t);
+  }, [estAdminPur, estDirecteur, estManager, estAssigne, user]);
 
-const peutDeposer = useCallback((taskId, dest, src) => {
-  const all  = [...tasks.todo, ...tasks.inprogress, ...tasks.done];
-  const task = all.find(t => t.id === taskId);
-  if (!task || estDirecteur) return false;
-  if (estAdminPur) return true;
-  if (estManager) {
-    const deptIds = user?.dept_ids;
-    if (!deptIds || deptIds.length === 0) return true;
-    return task.dept_id != null && deptIds.map(Number).includes(Number(task.dept_id));
-  }
-  if (!estAssigne(task)) return false;
-  return COL_ORDER[dest] > COL_ORDER[src];
-}, [tasks, estAdminPur, estDirecteur, estManager, estAssigne, user]);
-  const peutVoir = useCallback(t => {
-    return estAdminPur || estDirecteur || estManager || estSuperviseur || estAssigne(t);
-  }, [estAdminPur, estDirecteur, estManager, estSuperviseur, estAssigne]);
+  const peutDeposer = useCallback((taskId, dest, src) => {
+    const all  = [...tasks.todo, ...tasks.inprogress, ...tasks.done];
+    const task = all.find(t => t.id === taskId);
+    if (!task || estDirecteur) return false;
+    if (estAdminPur) return true;
+    if (estManager) {
+      const deptIds = user?.dept_ids;
+      if (!deptIds?.length) return true;
+      return task.dept_id != null && deptIds.map(Number).includes(Number(task.dept_id));
+    }
+    if (!estAssigne(task)) return false;
+    return COL_ORDER[dest] > COL_ORDER[src];
+  }, [tasks, estAdminPur, estDirecteur, estManager, estAssigne, user]);
+
+  const peutVoir = useCallback(t =>
+    estAdminPur || estDirecteur || estManager || estSuperviseur || estAssigne(t),
+  [estAdminPur, estDirecteur, estManager, estSuperviseur, estAssigne]);
 
   const insights = useInsights(tasks);
 
-  const tabCounts = useMemo(() => {
-    const all = [...tasks.todo, ...tasks.inprogress, ...tasks.done];
-    return {
-      all:        all.length,
-      todo:       tasks.todo.length,
-      inprogress: tasks.inprogress.length,
-      done:       tasks.done.length,
-    };
-  }, [tasks]);
+  const tabCounts = useMemo(() => ({
+    all:        tasks.todo.length + tasks.inprogress.length + tasks.done.length,
+    todo:       tasks.todo.length,
+    inprogress: tasks.inprogress.length,
+    done:       tasks.done.length,
+  }), [tasks]);
 
   const filteredTasks = useMemo(() => {
-    const filterFn = list => list.filter(t => {
-      const matchQ   = t.title.toLowerCase().includes(query.toLowerCase());
-      const matchP   = !priorityFilter || t.priority === priorityFilter;
-      const canSee   = estAdminPur || estDirecteur || estManager || estSuperviseur || estAssigne(t);
-      const matchTab = activeTab === 'all' || t.colKey === activeTab;
-      return matchQ && matchP && canSee && matchTab;
-    });
-    return {
-      todo:       filterFn(tasks.todo),
-      inprogress: filterFn(tasks.inprogress),
-      done:       filterFn(tasks.done),
-    };
+    const filterFn = list => list.filter(t =>
+      t.title.toLowerCase().includes(query.toLowerCase()) &&
+      (!priorityFilter || t.priority === priorityFilter) &&
+      (estAdminPur || estDirecteur || estManager || estSuperviseur || estAssigne(t)) &&
+      (activeTab === 'all' || t.colKey === activeTab)
+    );
+    return { todo: filterFn(tasks.todo), inprogress: filterFn(tasks.inprogress), done: filterFn(tasks.done) };
   }, [tasks, query, priorityFilter, activeTab, estAdminPur, estDirecteur, estManager, estSuperviseur, estAssigne]);
 
   const totalFiltered = filteredTasks.todo.length + filteredTasks.inprogress.length + filteredTasks.done.length;
   const hasFilters    = !!query || !!priorityFilter || activeTab !== 'all';
 
-  const patchColonne = useCallback((taskId, destCol) => {
+  const patchColonne = useCallback(async (taskId, destCol) => {
+    if (!taskId || !destCol) throw new Error('taskId ou destCol manquant');
     const token    = localStorage.getItem('xamio_token');
     const isAction = taskId.startsWith('action_');
     const id       = taskId.replace(isAction ? 'action_' : 'tache_', '');
-    const url      = isAction ? `/api/actions/${id}/statut` : `/api/taches/${id}/colonne`;
-    const body     = isAction
-      ? { action_statut: COL_TO_STATUT[destCol] }
-      : { tache_colonne: COL_TO_STATUT[destCol] };
-    return fetch(url, {
+    if (!id || id === 'undefined') throw new Error(`ID invalide: "${taskId}"`);
+    const url  = isAction ? `/api/actions/${id}/statut` : `/api/taches/${id}/colonne`;
+    const body = isAction ? { action_statut: COL_TO_STATUT_ACTION[destCol] } : { tache_colonne: COL_TO_STATUT_TACHE[destCol] };
+    const res  = await fetch(url, {
       method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${localStorage.getItem('xamio_token')}` },
+      headers:{ 'Content-Type':'application/json', Accept:'application/json', Authorization:`Bearer ${token}` },
       body: JSON.stringify(body),
     });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message ?? `HTTP ${res.status}`); }
+    return res.json();
   }, []);
 
   const moveOptimistic = useCallback((taskId, src, dest) => {
@@ -1066,32 +993,27 @@ const peutDeposer = useCallback((taskId, dest, src) => {
   };
   const handleDragEnd = () => { setDraggingId(null); setOverCol(null); };
 
-  const handleDrop = (e, destCol) => {
+  const handleDrop = async (e, destCol) => {
     e.preventDefault();
     const { id:taskId, sCol:sourceCol } = dragInfo;
     setDragInfo({ id:null, sCol:null }); setOverCol(null); setDraggingId(null);
     if (!taskId || sourceCol === destCol) return;
-    if (!peutDeposer(taskId, destCol, sourceCol)) {
-      addToast('Déplacement non autorisé.', 'error'); return;
-    }
+    if (!peutDeposer(taskId, destCol, sourceCol)) { addToast('Déplacement non autorisé.', 'error'); return; }
     moveOptimistic(taskId, sourceCol, destCol);
-    patchColonne(taskId, destCol).catch(() => { rollback(); addToast('Erreur lors du déplacement.', 'error'); });
-    addToast(
-      <span>
-        Déplacé vers <strong>{COL_CFG[destCol].label}</strong>
-        <button className="toast-undo-btn" onClick={() => { rollback(); addToast('Annulé.','info'); }}>Annuler</button>
-      </span>, 'success'
-    );
+    try {
+      await patchColonne(taskId, destCol);
+      addToast(<span>Déplacé vers <strong>{COL_CFG[destCol].label}</strong><button className="toast-undo-btn" onClick={() => { rollback(); addToast('Annulé.', 'info'); }}>Annuler</button></span>, 'success');
+    } catch (err) { rollback(); addToast(`Erreur : ${err.message}`, 'error'); }
   };
 
   const handleMoveCard = (task, currentCol, dir) => {
     const cols = ['todo','inprogress','done'];
     const dest = cols[cols.indexOf(currentCol) + dir];
     if (!dest) return;
-    if (!peutDeposer(task.id, dest, currentCol)) { addToast('Déplacement non autorisé.','error'); return; }
+    if (!peutDeposer(task.id, dest, currentCol)) { addToast('Déplacement non autorisé.', 'error'); return; }
     moveOptimistic(task.id, currentCol, dest);
     setActiveCol(dest);
-    patchColonne(task.id, dest).catch(() => { rollback(); addToast('Erreur.','error'); });
+    patchColonne(task.id, dest).catch(() => { rollback(); addToast('Erreur.', 'error'); });
     addToast(<span>Déplacé vers <strong>{COL_CFG[dest].label}</strong></span>, 'success');
   };
 
@@ -1099,16 +1021,14 @@ const peutDeposer = useCallback((taskId, dest, src) => {
     if (!editingTask || editingTask.source !== 'action') return;
     const { id:taskId, colKey:srcCol } = editingTask;
     if (srcCol === destCol) { setIsEditOpen(false); return; }
-    if (!estAdminPur && !estManager && COL_ORDER[destCol] < COL_ORDER[srcCol]) {
-      addToast('Vous ne pouvez pas revenir en arrière.','error'); return;
-    }
+    if (!estAdminPur && !estManager && COL_ORDER[destCol] < COL_ORDER[srcCol]) { addToast('Vous ne pouvez pas revenir en arrière.', 'error'); return; }
     moveOptimistic(taskId, srcCol, destCol);
     setIsEditOpen(false);
     if (isMobile) setActiveCol(destCol);
     try {
       await patchColonne(taskId, destCol);
       addToast(<span>Action déplacée vers <strong>{COL_CFG[destCol].label}</strong></span>, 'success');
-    } catch { rollback(); addToast('Erreur.','error'); }
+    } catch { rollback(); addToast('Erreur.', 'error'); }
   };
 
   const handleSave = async () => {
@@ -1119,126 +1039,94 @@ const peutDeposer = useCallback((taskId, dest, src) => {
       const res = await fetch(`/api/taches/${id}`, {
         method:'PUT',
         headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-        body: JSON.stringify({
-          tache_titre:    editingTask.title,
-          tache_priorite: editingTask.priority,
-          tache_echeance: editingTask.due || null,
-          description:    editingTask.description || null,
-        }),
+        body: JSON.stringify({ tache_titre:editingTask.title, tache_priorite:editingTask.priority, tache_echeance:editingTask.due||null, description:editingTask.description||null }),
       });
       if (!res.ok) throw new Error();
       setTasks(prev => {
         const next = { ...prev };
-        next[editingTask.colKey] = next[editingTask.colKey].map(t =>
-          t.id === editingTask.id ? editingTask : t
-        );
+        next[editingTask.colKey] = next[editingTask.colKey].map(t => t.id === editingTask.id ? editingTask : t);
         return next;
       });
       setIsEditOpen(false);
       addToast('Tâche mise à jour.', 'success');
-    } catch {
-      addToast('Erreur lors de la sauvegarde.', 'error');
-    }
+    } catch { addToast('Erreur lors de la sauvegarde.', 'error'); }
   };
 
   return (
     <div className="xm-tasks xm-enter" style={{ padding:'0 2px', maxWidth:'100%', overflowX:'hidden' }}>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, marginBottom:24, flexWrap:'wrap' }}>
         <div>
-          <h1 style={{ fontSize:22, fontWeight:700, color:T.t1, letterSpacing:'-.6px', marginBottom:4, fontFamily:'var(--font-sans)' }}>
-            Tâches
-          </h1>
-          <p style={{ fontSize:13, color:T.t3, fontFamily:'var(--font-sans)', display:'flex', alignItems:'center', gap:8 }}>
+          <h1 style={{ fontSize:22, fontWeight:700, color:T.t1, letterSpacing:'-.6px', margin:'0 0 4px', fontFamily:'var(--font-sans)' }}>Tâches</h1>
+          <p style={{ fontSize:13, color:T.t3, margin:0, display:'flex', alignItems:'center', gap:8 }}>
             {insights.total} tâche{insights.total !== 1 ? 's' : ''}
             {insights.overdue > 0 && <span style={{ color:'#E24B4A', fontWeight:600 }}>· {insights.overdue} en retard</span>}
             {insights.dueSoon > 0 && <span style={{ color:'#BA7517', fontWeight:600 }}>· {insights.dueSoon} bientôt</span>}
           </p>
         </div>
         {(estAdminPur || estManager) && (
-          <PrimaryBtn onClick={() => setIsCreateOpen(true)}>
-            <Ic.plus /> Nouvelle tâche
-          </PrimaryBtn>
+          <PrimaryBtn onClick={() => setIsCreateOpen(true)}><Ic.plus/> Nouvelle tâche</PrimaryBtn>
         )}
       </div>
 
-      <StatsRow insights={insights} />
-      <TabBar active={activeTab} setActive={setActiveTab} counts={tabCounts} />
+      <StatsRow insights={insights}/>
+      <TabBar active={activeTab} setActive={setActiveTab} counts={tabCounts}/>
 
       <div style={{ display:'flex', gap:10, alignItems:'flex-start', marginBottom:20, flexWrap:'wrap' }}>
         <div style={{ flex:1 }}>
-          <FiltersBar query={query} setQuery={setQuery} priorityFilter={priorityFilter} setPriority={setPriority} activeCount={totalFiltered} />
+          <FiltersBar query={query} setQuery={setQuery} priorityFilter={priorityFilter} setPriority={setPriority} activeCount={totalFiltered}/>
         </div>
-        <ViewSwitcher view={view} setView={setView} />
+        <ViewSwitcher view={view} setView={setView}/>
       </div>
 
-      {/* ── Kanban ── */}
+      {/* Kanban */}
       {view === 'Kanban' && (
         <>
           <div className="col-tabs">
             {['todo','inprogress','done'].map(col => (
-              <button key={col} onClick={() => setActiveCol(col)} className={`col-tab ${activeCol === col ? 'active' : ''}`}>
+              <button key={col} onClick={() => setActiveCol(col)} className={`col-tab ${activeCol===col?'active':''}`}>
                 {COL_CFG[col].label}
                 <span className="col-count">{filteredTasks[col].length}</span>
               </button>
             ))}
           </div>
 
-          {totalFiltered === 0 ? (
-            <EmptyState hasFilters={hasFilters} />
-          ) : (
+          {totalFiltered === 0 ? <EmptyState hasFilters={hasFilters}/> : (
             <div className="kanban-container">
               {['todo','inprogress','done'].map(colKey => (
                 <div
                   key={colKey}
-                  className={`kanban-col${overCol === colKey ? ' over' : ''}`}
+                  className={`kanban-col${overCol===colKey?' over':''}`}
                   style={{ display: isMobile && colKey !== activeCol ? 'none' : undefined }}
                   onDragOver={e => { e.preventDefault(); setOverCol(colKey); }}
-                  onDragLeave={() => setOverCol(o => o === colKey ? null : o)}
+                  onDragLeave={() => setOverCol(o => o===colKey?null:o)}
                   onDrop={e => handleDrop(e, colKey)}
                 >
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16 }}>
                     <span style={{ width:7, height:7, borderRadius:'50%', background:COL_CFG[colKey].dot, flexShrink:0 }}/>
-                    <h3 style={{ fontSize:11, fontWeight:800, textTransform:'uppercase', letterSpacing:'.06em', margin:0, color:T.t2 }}>
-                      {COL_CFG[colKey].label}
-                    </h3>
-                    <span style={{ fontSize:11, fontWeight:700, padding:'0 7px', borderRadius:T.r20, background:T.bg3, color:T.t3, fontFamily:'var(--font-mono)' }}>
-                      {filteredTasks[colKey].length}
-                    </span>
+                    <h3 style={{ fontSize:11, fontWeight:800, textTransform:'uppercase', letterSpacing:'.06em', margin:0, color:T.t2 }}>{COL_CFG[colKey].label}</h3>
+                    <span style={{ fontSize:11, fontWeight:700, padding:'0 7px', borderRadius:T.r20, background:T.bg3, color:T.t3, fontFamily:'var(--font-mono)' }}>{filteredTasks[colKey].length}</span>
                   </div>
 
-                  {loading && [1,2].map(i => <SkeletonCard key={i} />)}
+                  {loading && [1,2].map(i => <SkeletonCard key={i}/>)}
 
                   {!loading && filteredTasks[colKey].map((task, i) => (
                     <TaskCard
-                      key={task.id}
-                      task={task}
-                      colKey={colKey}
-                      index={i}
-                      canDrag={peutDragguer(task)}
-                      isMobile={isMobile}
-                      draggingId={draggingId}
-                      isFirst={colKey === 'todo'}
-                      isLast={colKey === 'done'}
+                      key={task.id} task={task} colKey={colKey} index={i}
+                      canDrag={peutDragguer(task)} isMobile={isMobile} draggingId={draggingId}
+                      isFirst={colKey==='todo'} isLast={colKey==='done'}
                       onDragStart={e => handleDragStart(e, task, colKey)}
                       onDragEnd={handleDragEnd}
                       onDragOver={e => e.preventDefault()}
-                      onClick={() => {
-                        if (peutVoir(task)) {
-                          setEditingTask({ ...task, colKey });
-                          setIsEditOpen(true);
-                        }
-                      }}
+                      onClick={() => { if (peutVoir(task)) { setEditingTask({...task,colKey}); setIsEditOpen(true); } }}
                       onMoveLeft={e  => { e.stopPropagation(); handleMoveCard(task, colKey, -1); }}
                       onMoveRight={e => { e.stopPropagation(); handleMoveCard(task, colKey,  1); }}
                     />
                   ))}
 
                   {!loading && filteredTasks[colKey].length === 0 && (
-                    <div style={{ textAlign:'center', padding:'32px 16px', border:`2px dashed ${T.bd0}`, borderRadius:12, color:T.t3, fontSize:12 }}>
-                      Aucune tâche
-                    </div>
+                    <div style={{ textAlign:'center', padding:'32px 16px', border:`2px dashed ${T.bd0}`, borderRadius:12, color:T.t3, fontSize:12 }}>Aucune tâche</div>
                   )}
                 </div>
               ))}
@@ -1247,7 +1135,7 @@ const peutDeposer = useCallback((taskId, dest, src) => {
         </>
       )}
 
-      {/* ── Liste ── */}
+      {/* Liste */}
       {view === 'Liste' && (
         <div className="tasks-table-wrap">
           {loading ? (
@@ -1255,7 +1143,7 @@ const peutDeposer = useCallback((taskId, dest, src) => {
               {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height:40, marginBottom:12, borderRadius:8 }}/>)}
             </div>
           ) : totalFiltered === 0 ? (
-            <div style={{ padding:'48px 24px' }}><EmptyState hasFilters={hasFilters} /></div>
+            <div style={{ padding:'48px 24px' }}><EmptyState hasFilters={hasFilters}/></div>
           ) : (
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead style={{ background:T.bg2, fontSize:11 }}>
@@ -1274,27 +1162,21 @@ const peutDeposer = useCallback((taskId, dest, src) => {
                     return (
                       <tr
                         key={t.id}
-                        onClick={() => {
-                          if (canVoir) { setEditingTask({ ...t, colKey:col }); setIsEditOpen(true); }
-                        }}
-                        style={{
-                          borderTop:`1px solid ${T.bd0}`,
-                          cursor: canVoir ? 'pointer' : 'default',
-                          transition:'background .12s',
-                        }}
+                        onClick={() => { if (canVoir) { setEditingTask({...t,colKey:col}); setIsEditOpen(true); } }}
+                        style={{ borderTop:`1px solid ${T.bd0}`, cursor:canVoir?'pointer':'default', transition:'background .12s' }}
                         onMouseEnter={e => { if (canVoir) e.currentTarget.style.background = T.bg2; }}
                         onMouseLeave={e => { e.currentTarget.style.background = ''; }}
                       >
                         <td style={{ padding:14, fontWeight:600, color:T.t1 }}>{t.title}</td>
                         <td style={{ padding:14 }} className="td-meta">
-                          <span className={`src-badge ${t.source === 'action' ? 'cr' : 'tache'}`}>
-                            {t.source === 'action' ? <><Ic.cr /> CR</> : '✓ Tâche'}
+                          <span className={`src-badge ${t.source==='action'?'cr':'tache'}`}>
+                            {t.source === 'action' ? <><Ic.cr/> CR</> : '✓ Tâche'}
                           </span>
                         </td>
                         <td style={{ padding:14, color:T.t3, fontSize:13 }} className="td-meta">
                           {t.assignee ? (
                             <span style={{ display:'flex', alignItems:'center', gap:6 }}>
-                              <span style={{ width:20, height:20, borderRadius:'50%', background: t.source === 'action' ? T.acc : '#378ADD', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:800, flexShrink:0 }}>
+                              <span style={{ width:20, height:20, borderRadius:'50%', background:t.source==='action'?T.acc:'#378ADD', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:800, flexShrink:0 }}>
                                 {t.assignee[0]?.toUpperCase()}
                               </span>
                               {t.assignee}
@@ -1305,7 +1187,7 @@ const peutDeposer = useCallback((taskId, dest, src) => {
                           {t.due ? (
                             <span style={{ display:'flex', flexDirection:'column', gap:3 }}>
                               <span style={{ color:T.t3 }}>{t.due}</span>
-                              {due && <DueBadge due={due} />}
+                              {due && <DueBadge due={due}/>}
                             </span>
                           ) : '—'}
                         </td>
@@ -1317,12 +1199,7 @@ const peutDeposer = useCallback((taskId, dest, src) => {
                         </td>
                         <td style={{ padding:14 }} className="td-meta">
                           {priority && (
-                            <span style={{
-                              display:'inline-flex', alignItems:'center', gap:4,
-                              fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:T.r20,
-                              background: priority.dot + '18', color:priority.dot,
-                              border:`1px solid ${priority.dot}44`,
-                            }}>
+                            <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:T.r20, background:priority.dot+'18', color:priority.dot, border:`1px solid ${priority.dot}44` }}>
                               {priority.label}
                             </span>
                           )}
@@ -1339,14 +1216,9 @@ const peutDeposer = useCallback((taskId, dest, src) => {
 
       {ReactDOM.createPortal(
         <EditModal
-          open={isEditOpen}
-          task={editingTask}
-          isMobile={isMobile}
-          estAdminPur={estAdminPur}
-          estManager={estManager}
-          estDirecteur={estDirecteur}
-          user={user}
-          peutModifier={peutModifier}   
+          open={isEditOpen} task={editingTask} isMobile={isMobile}
+          estAdminPur={estAdminPur} estManager={estManager} user={user}
+          peutModifier={peutModifier}
           onClose={() => setIsEditOpen(false)}
           onSave={handleSave}
           onMoveAction={handleMoveAction}
@@ -1356,11 +1228,7 @@ const peutDeposer = useCallback((taskId, dest, src) => {
       )}
 
       {ReactDOM.createPortal(
-        <CreateTacheModal
-          open={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
-          onCreated={() => loadTasks()}
-        />,
+        <CreateTacheModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} onCreated={loadTasks}/>,
         document.body
       )}
     </div>

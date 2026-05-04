@@ -36,6 +36,7 @@ class ReunionController extends Controller
         'participantReunions.user:id,util_prenom,util_nom,email',
         'departements:dept_id,dept_nom',
         'organisateur:id,util_prenom,util_nom,email',
+        'compteRendu',
     ];
 
     // ─────────────────────────────────────────────────────────────────────────

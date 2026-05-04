@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Document extends Model
 {
-    use HasFactory;
-
     protected $primaryKey = 'doc_id';
 
     protected $fillable = [
+        'org_id',
+        'user_id',
         'doc_nom',
         'doc_type_mime',
         'doc_taille_octets',
@@ -19,118 +19,52 @@ class Document extends Model
         'doc_categorie',
         'doc_partage',
         'doc_visibilite',
+        // RAG — gérés par des jobs dédiés, pas l'upload direct
         'doc_indexe',
         'doc_nb_chunks',
         'doc_indexe_at',
-        'org_id',
-        'user_id',
     ];
 
     protected $casts = [
         'doc_partage'       => 'boolean',
-        'doc_taille_octets' => 'integer',
         'doc_indexe'        => 'boolean',
         'doc_nb_chunks'     => 'integer',
         'doc_indexe_at'     => 'datetime',
+        'doc_taille_octets' => 'integer',
     ];
 
-    // ── Relations ──────────────────────────────────────────────────────────────
+    // ── Relations ─────────────────────────────────────────────────
 
-    public function organisation()
-    {
-        return $this->belongsTo(Organisation::class, 'org_id');
-    }
-
-    public function deposant()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function acces()
+    public function organisation(): BelongsTo
     {
-        return $this->hasMany(AccesDocument::class, 'doc_id');
+        return $this->belongsTo(Organisation::class, 'org_id', 'org_id');
     }
 
-    public function usersAvecAcces()
+    // ── Helpers ───────────────────────────────────────────────────
+
+    /** Extension courte déduite du MIME. */
+    public function extension(): string
     {
-        return $this->belongsToMany(
-            User::class,
-            'acces_documents',
-            'doc_id',
-            'user_id'
-        )->withPivot(['acc_permission', 'acc_date_partage'])
-         ->withTimestamps();
+        return match ($this->doc_type_mime) {
+            'application/pdf'                                                                  => 'pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'         => 'docx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'               => 'xlsx',
+            'image/png'                                                                        => 'png',
+            default                                                                            => 'bin',
+        };
     }
 
-    // ── Relations RAG ──────────────────────────────────────────────────────────
-
-    public function chunks()
+    /** Taille lisible (KB / MB). */
+    public function tailleHumaine(): string
     {
-        return $this->hasMany(DocumentChunk::class, 'doc_id')
-                    ->orderBy('chunk_ordre');
-    }
-
-    public function chunksIndexes()
-    {
-        return $this->hasMany(DocumentChunk::class, 'doc_id')
-                    ->where('chunk_statut', 'indexe');
-    }
-
-    // ── Helpers ────────────────────────────────────────────────────────────────
-
-    public function tailleEnMo(): float
-    {
-        return round($this->doc_taille_octets / 1048576, 2);
-    }
-
-    public function estIndexe(): bool
-    {
-        return $this->doc_indexe === true;
-    }
-
-    public function estPretPourRag(): bool
-    {
-        return $this->doc_indexe && $this->doc_nb_chunks > 0;
-    }
-
-    public function peutEtreIndexe(): bool
-    {
-        return in_array($this->doc_type_mime, [
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'text/plain',
-            'text/csv',
-        ]);
-    }
-
-    // ── Scopes ────────────────────────────────────────────────────────────────
-
-    public function scopeIndexes($query)
-    {
-        return $query->where('doc_indexe', true);
-    }
-
-    public function scopePretsPourRag($query)
-    {
-        return $query->where('doc_indexe', true)
-                     ->where('doc_nb_chunks', '>', 0);
-    }
-
-    public function scopeVisiblesPour($query, User $user)
-    {
-        return $query->where(function ($q) use ($user) {
-            $q->where('doc_visibilite', 'organisation')
-              ->orWhere(function ($q2) use ($user) {
-                  $q2->where('doc_visibilite', 'equipe')
-                     ->whereHas('acces', fn($q3) => $q3->where('user_id', $user->id));
-              })
-              ->orWhere(function ($q2) use ($user) {
-                  $q2->where('doc_visibilite', 'prive')
-                     ->where('user_id', $user->id);
-              });
-        });
+        $b = $this->doc_taille_octets;
+        return $b < 1_048_576
+            ? round($b / 1024) . ' KB'
+            : number_format($b / 1_048_576, 1) . ' MB';
     }
 }

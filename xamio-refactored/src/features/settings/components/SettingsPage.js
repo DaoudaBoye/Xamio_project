@@ -20,8 +20,7 @@ function authHeaders() {
   };
 }
 
-const ROLES       = ['Admin Entreprise', 'Directeur', 'Manager', 'Assistant', 'Employé'];
-const DEPARTMENTS = ['Direction', 'Finance', 'Technologie', 'Opérations', 'Ressources Humaines'];
+const ROLES = ['Admin Entreprise', 'Directeur', 'Manager', 'Assistant', 'Employé'];
 
 const ROLE_ID_MAP = {
   'Admin Entreprise': 2,
@@ -31,10 +30,10 @@ const ROLE_ID_MAP = {
   'Directeur':        6,
 };
 
-// Sections visibles par tous les utilisateurs authentifiés
 const SECTIONS = [
   { key: 'profile',       label: 'Profil',            icon: '👤' },
   { key: 'team',          label: 'Équipe',             icon: '🧑‍🤝‍🧑' },
+  { key: 'departements',  label: 'Départements',       icon: '🏢' },  // ← nouveau
   { key: 'notifications', label: 'Notifications',      icon: '🔔' },
   { key: 'security',      label: 'Sécurité',           icon: '🔒' },
   { key: 'appearance',    label: 'Apparence',          icon: '🎨' },
@@ -42,8 +41,78 @@ const SECTIONS = [
   { key: 'integrations',  label: 'Intégrations',       icon: '🔌' },
 ];
 
-const EMPTY_FORM = { prenom: '', nom: '', email: '', role: '', dept: '', password: '', confirmPassword: '' };
-const PER_PAGE   = 10;
+const EMPTY_FORM     = { prenom: '', nom: '', email: '', role: '', dept: '', password: '', confirmPassword: '' };
+const EMPTY_DEPT_FORM = { dept_nom: '', dept_description: '', user_id: '' };
+const PER_PAGE       = 10;
+
+
+/* ─────────────────────────────────────────────
+   SEARCHABLE SELECT — liste déroulante avec recherche
+   ───────────────────────────────────────────── */
+function SearchableSelect({ label, value, onChange, options = [], placeholder = '— Choisir —', disabled = false }) {
+  const [open,  setOpen]  = React.useState(false);
+  const [query, setQuery] = React.useState('');
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selected     = options.find(o => String(o.id) === String(value));
+  const displayLabel = selected ? selected.name : placeholder;
+  const filtered     = options.filter(o => !query || o.name.toLowerCase().includes(query.toLowerCase()));
+
+  const handleSelect = opt => { onChange(opt ? String(opt.id) : ''); setOpen(false); setQuery(''); };
+
+  return (
+    <div ref={ref} style={{ display: 'flex', flexDirection: 'column', gap: 5, position: 'relative' }}>
+      {label && <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', color: 'var(--color-text-muted)' }}>{label}</label>}
+
+      <button type="button" disabled={disabled} onClick={() => { if (!disabled) { setOpen(o => !o); setQuery(''); } }}
+        style={{ width: '100%', height: 41, padding: '0 12px', background: 'var(--color-background-tertiary)', border: `1px solid ${open ? 'var(--color-accent)' : 'var(--color-border)'}`, borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: selected ? 'var(--color-text-primary)' : 'var(--color-text-muted)', fontSize: 13, fontFamily: 'var(--font-sans)', opacity: disabled ? 0.6 : 1, transition: 'border-color .15s' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
+        <span style={{ flexShrink: 0, marginLeft: 8, color: 'var(--color-text-muted)', fontSize: 11, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▼</span>
+      </button>
+
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 500, background: 'var(--color-background-secondary)', border: '1px solid var(--color-border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+          <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border)' }}>
+            <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher…"
+              style={{ width: '100%', padding: '7px 10px', background: 'var(--color-background-tertiary)', border: '1px solid var(--color-border)', borderRadius: 7, fontSize: 12, color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)', outline: 'none', boxSizing: 'border-box' }}
+              onFocus={e => e.target.style.borderColor = 'var(--color-accent)'}
+              onBlur={e  => e.target.style.borderColor = 'var(--color-border)'}
+            />
+          </div>
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            <button type="button" onClick={() => handleSelect(null)}
+              style={{ width: '100%', padding: '9px 14px', border: 'none', borderBottom: '1px solid var(--color-border)', background: !value ? 'var(--color-accent-bg)' : 'transparent', color: !value ? 'var(--color-accent)' : 'var(--color-text-muted)', fontSize: 12, fontFamily: 'var(--font-sans)', cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={e => { if (value) e.currentTarget.style.background = 'var(--color-background-tertiary)'; }}
+              onMouseLeave={e => { if (value) e.currentTarget.style.background = 'transparent'; }}
+            >— Aucun manager —</button>
+            {filtered.length === 0
+              ? <p style={{ padding: '12px 14px', fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center' }}>Aucun résultat pour « {query} »</p>
+              : filtered.map(opt => {
+                  const sel = String(opt.id) === String(value);
+                  return (
+                    <button key={opt.id} type="button" onClick={() => handleSelect(opt)}
+                      style={{ width: '100%', padding: '9px 14px', border: 'none', borderBottom: '1px solid var(--color-border)', background: sel ? 'var(--color-accent-bg)' : 'transparent', color: sel ? 'var(--color-accent)' : 'var(--color-text-primary)', fontSize: 13, fontFamily: 'var(--font-sans)', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: sel ? 600 : 400 }}
+                      onMouseEnter={e => { if (!sel) e.currentTarget.style.background = 'var(--color-background-tertiary)'; }}
+                      onMouseLeave={e => { if (!sel) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span>{opt.name}</span>
+                      {sel && <span style={{ fontSize: 11 }}>✓</span>}
+                    </button>
+                  );
+                })
+            }
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ─────────────────────────────────────────────
    COMPOSANTS UTILITAIRES
@@ -78,7 +147,7 @@ function Toggle({ value, onChange, disabled = false }) {
   );
 }
 
-function Select({ label, value, onChange, options, disabled = false }) {
+function Select({ label, value, onChange, options, optionKey, optionLabel, optionValue, disabled = false, placeholder = '— Choisir —' }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
       {label && <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', color: 'var(--color-text-muted)' }}>{label}</label>}
@@ -97,14 +166,21 @@ function Select({ label, value, onChange, options, disabled = false }) {
         onFocus={e => { if (!disabled) e.target.style.borderColor = 'var(--color-accent)'; }}
         onBlur={e  => e.target.style.borderColor = 'var(--color-border)'}
       >
-        <option value="">— Choisir —</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        <option value="">{placeholder}</option>
+        {/* Support tableau de strings ET tableau d'objets */}
+        {options.map(o => {
+          if (typeof o === 'string') return <option key={o} value={o}>{o}</option>;
+          const k = optionKey   || 'id';
+          const l = optionLabel || 'label';
+          const v = optionValue || 'id';
+          return <option key={o[k]} value={o[v]}>{o[l]}</option>;
+        })}
       </select>
     </div>
   );
 }
 
-function ReadOnlyBadge({ text }) {
+function ReadOnlyBadge() {
   return (
     <span style={{
       fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 6,
@@ -153,10 +229,331 @@ function Avatar({ u, size = 32 }) {
 }
 
 /* ─────────────────────────────────────────────
-   FORMULAIRE UTILISATEUR (create / edit)
+   SECTION DÉPARTEMENTS — CRUD complet
    Admin seulement
    ───────────────────────────────────────────── */
-function UserForm({ view, form, setForm, formErrors, saving, onBack, onSave }) {
+function DepartementsSection({ addToast, isAdmin }) {
+  const [departements,  setDepartements]  = useState([]);
+  const [membres,       setMembres]       = useState([]);   // liste des users pour le select manager
+  const [loading,       setLoading]       = useState(true);
+  const [view,          setView]          = useState('list'); // 'list' | 'create' | 'edit'
+  const [form,          setForm]          = useState(EMPTY_DEPT_FORM);
+  const [editId,        setEditId]        = useState(null);
+  const [saving,        setSaving]        = useState(false);
+  const [formErrors,    setFormErrors]    = useState({});
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  /* ── Chargement des départements ── */
+  const fetchDepartements = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res  = await fetch(`${API_BASE}/departements`, { headers: authHeaders() });
+      const data = await res.json();
+      if (data.success) setDepartements(data.departements || []);
+    } catch {
+      addToast('Erreur lors du chargement des départements.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  /* ── Chargement des membres pour le select manager ── */
+  const fetchMembres = useCallback(async () => {
+    try {
+      const res  = await fetch(`${API_BASE}/membres`, { headers: authHeaders() });
+      const data = await res.json();
+      if (data.data) setMembres(data.data);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchDepartements();
+    fetchMembres();
+  }, [fetchDepartements, fetchMembres]);
+
+  const validate = () => {
+    const errs = {};
+    if (!form.dept_nom.trim()) errs.dept_nom = 'Le nom est requis.';
+    setFormErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const openCreate = () => {
+    setForm(EMPTY_DEPT_FORM);
+    setFormErrors({});
+    setView('create');
+  };
+
+  const openEdit = dept => {
+    setForm({
+      dept_nom:         dept.dept_nom         || '',
+      dept_description: dept.dept_description || '',
+      user_id:          dept.user_id          || '',
+    });
+    setFormErrors({});
+    setEditId(dept.dept_id);
+    setView('edit');
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
+    setSaving(true);
+    try {
+      const isCreate = view === 'create';
+      const url    = isCreate ? `${API_BASE}/departements` : `${API_BASE}/departements/${editId}`;
+      const method = isCreate ? 'POST' : 'PUT';
+      const body   = {
+        dept_nom:         form.dept_nom.trim(),
+        dept_description: form.dept_description.trim() || null,
+        user_id:          form.user_id || null,
+      };
+
+      const res  = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Erreur serveur');
+
+      addToast(isCreate ? `Département "${form.dept_nom}" créé.` : 'Département mis à jour.', 'success');
+      await fetchDepartements();
+      setView('list');
+    } catch (err) {
+      addToast(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async id => {
+    try {
+      const res = await fetch(`${API_BASE}/departements/${id}`, { method: 'DELETE', headers: authHeaders() });
+      if (!res.ok) throw new Error('Erreur suppression');
+      setConfirmDelete(null);
+      addToast('Département désactivé.', 'warning');
+      await fetchDepartements();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  /* ── Formulaire créer/modifier ── */
+  if (view === 'create' || view === 'edit') {
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+          <button
+            onClick={() => setView('list')}
+            style={{ background: 'var(--color-background-tertiary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--color-text-secondary)' }}
+          >
+            ← Retour
+          </button>
+          <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 600 }}>
+            {view === 'create' ? 'Créer un département' : 'Modifier le département'}
+          </h3>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 520 }}>
+          <div>
+            <Input
+              label="NOM DU DÉPARTEMENT *"
+              value={form.dept_nom}
+              onChange={e => setForm(p => ({ ...p, dept_nom: e.target.value }))}
+              placeholder="Ex : Finance, Opérations, RH…"
+            />
+            {formErrors.dept_nom && (
+              <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{formErrors.dept_nom}</p>
+            )}
+          </div>
+
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', color: 'var(--color-text-muted)', display: 'block', marginBottom: 5 }}>
+              DESCRIPTION
+            </label>
+            <textarea
+              value={form.dept_description}
+              onChange={e => setForm(p => ({ ...p, dept_description: e.target.value }))}
+              placeholder="Description optionnelle du département…"
+              rows={3}
+              style={{
+                width: '100%', background: 'var(--color-background-tertiary)',
+                border: '1px solid var(--color-border)', borderRadius: 8,
+                padding: '9px 12px', color: 'var(--color-text-primary)', fontSize: 13,
+                outline: 'none', fontFamily: 'var(--font-sans)', resize: 'vertical',
+                boxSizing: 'border-box',
+              }}
+              onFocus={e => e.target.style.borderColor = 'var(--color-accent)'}
+              onBlur={e  => e.target.style.borderColor = 'var(--color-border)'}
+            />
+          </div>
+
+          {/* ── Manager : affiché différemment selon create ou edit ── */}
+          {view === 'create' ? (
+            /* Création — pas de manager, explication du flux */
+            <div style={{
+              padding: '12px 14px',
+              background: 'var(--color-accent-bg)',
+              border: '1px solid var(--color-accent-border)',
+              borderRadius: 8,
+              fontSize: 12,
+              color: 'var(--color-text-secondary)',
+              lineHeight: 1.6,
+            }}>
+              💡 <strong>Le manager sera assigné après.</strong><br />
+              Créez d'abord le département, puis créez vos utilisateurs, et revenez modifier ce département pour assigner un manager.
+            </div>
+          ) : (
+            /* Modification — SearchableSelect manager avec recherche intégrée */
+            <div>
+              <SearchableSelect
+                label="MANAGER RESPONSABLE (optionnel)"
+                value={form.user_id}
+                onChange={v => setForm(p => ({ ...p, user_id: v }))}
+                options={membres}
+                placeholder={membres.length === 0 ? '— Aucun utilisateur disponible —' : '— Rechercher un manager —'}
+                disabled={membres.length === 0}
+              />
+              {membres.length === 0 && (
+                <p style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 4 }}>
+                  💡 Créez d'abord des utilisateurs dans l'onglet Équipe.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 8 }}>
+            <Button variant="ghost" onClick={() => setView('list')}>Annuler</Button>
+            <Button variant="primary" loading={saving} onClick={handleSave}>
+              {view === 'create' ? 'Créer le département' : 'Enregistrer les modifications'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Liste des départements ── */
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 600 }}>Départements</h3>
+          <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+            {loading ? 'Chargement…' : `${departements.length} département${departements.length > 1 ? 's' : ''} dans l'organisation`}
+          </p>
+        </div>
+        {isAdmin && (
+          <Button variant="primary" size="sm" onClick={openCreate}>
+            + Nouveau département
+          </Button>
+        )}
+      </div>
+
+      {loading ? (
+        <p style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement…</p>
+      ) : departements.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 20px', background: 'var(--color-background-tertiary)', borderRadius: 12, border: '1px dashed var(--color-border)' }}>
+          <p style={{ fontSize: 32, marginBottom: 12 }}>🏢</p>
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 6 }}>Aucun département</p>
+          <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 20 }}>
+            Créez vos premiers départements pour organiser votre équipe.
+          </p>
+          {isAdmin && (
+            <Button variant="primary" onClick={openCreate}>+ Créer le premier département</Button>
+          )}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {departements.map(dept => {
+            const manager = membres.find(m => m.id === dept.user_id);
+            return (
+              <div
+                key={dept.dept_id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 16px',
+                  background: 'var(--color-background-tertiary)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 10,
+                  transition: 'border-color var(--transition-normal)',
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-accent-border)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'}
+              >
+                {/* Icône */}
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--color-accent-bg)', border: '1px solid var(--color-accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+                  🏢
+                </div>
+
+                {/* Infos */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 }}>
+                    {dept.dept_nom}
+                  </p>
+                  <p style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                    {dept.dept_description || 'Aucune description'}
+                    {manager ? ` · Manager : ${manager.name}` : ''}
+                  </p>
+                </div>
+
+                {/* Badge membres */}
+                {dept.membres_count !== undefined && (
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 20, padding: '2px 10px', flexShrink: 0 }}>
+                    {dept.membres_count} membre{dept.membres_count > 1 ? 's' : ''}
+                  </span>
+                )}
+
+                {/* Badge statut */}
+                <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: dept.dept_actif ? '#dcfce7' : '#f1f5f9', color: dept.dept_actif ? '#16a34a' : '#94a3b8', border: `1px solid ${dept.dept_actif ? '#bbf7d0' : '#e2e8f0'}`, flexShrink: 0 }}>
+                  {dept.dept_actif ? 'Actif' : 'Inactif'}
+                </span>
+
+                {/* Actions admin */}
+                {isAdmin && (
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button
+                      title="Modifier"
+                      onClick={() => openEdit(dept)}
+                      style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 9px', cursor: 'pointer', fontSize: 13, transition: 'all var(--transition-normal)' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-accent)'; e.currentTarget.style.color = 'var(--color-accent)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.color = 'inherit'; }}
+                    >✏️</button>
+                    <button
+                      title="Désactiver"
+                      onClick={() => setConfirmDelete(dept)}
+                      style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 9px', cursor: 'pointer', fontSize: 13, transition: 'all var(--transition-normal)' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#ef4444'; e.currentTarget.style.background = '#fef2f2'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'var(--color-background-elevated)'; }}
+                    >🗑</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal confirmation désactivation */}
+      {confirmDelete && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'var(--color-background-secondary)', border: '1px solid var(--color-border)', borderRadius: 14, padding: '28px 32px', maxWidth: 380, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Désactiver ce département ?</p>
+            <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 24 }}>
+              Le département <strong>{confirmDelete.dept_nom}</strong> sera désactivé. Les réunions et tâches associées ne seront pas supprimées.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <Button variant="ghost" onClick={() => setConfirmDelete(null)}>Annuler</Button>
+              <Button variant="danger" onClick={() => handleDelete(confirmDelete.dept_id)}>Désactiver</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   FORMULAIRE UTILISATEUR (create / edit)
+   departements : chargé dynamiquement depuis l'API
+   ───────────────────────────────────────────── */
+function UserForm({ view, form, setForm, formErrors, saving, onBack, onSave, departements = [] }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
@@ -189,7 +586,19 @@ function UserForm({ view, form, setForm, formErrors, saving, onBack, onSave }) {
           {formErrors.role && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{formErrors.role}</p>}
         </div>
         <div>
-          <Select label="DÉPARTEMENT" value={form.dept} onChange={v => setForm(p => ({ ...p, dept: v }))} options={DEPARTMENTS} />
+          <Select
+            label="DÉPARTEMENT"
+            value={form.dept}
+            onChange={v => setForm(p => ({ ...p, dept: v }))}
+            options={departements}
+            placeholder={departements.length === 0 ? '— Aucun département —' : '— Choisir —'}
+            disabled={departements.length === 0}
+          />
+          {departements.length === 0 && (
+            <p style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 4 }}>
+              💡 Créez des départements dans l'onglet Départements.
+            </p>
+          )}
         </div>
       </div>
 
@@ -226,11 +635,10 @@ function UserForm({ view, form, setForm, formErrors, saving, onBack, onSave }) {
 
 /* ─────────────────────────────────────────────
    SECTION ÉQUIPE
-   Admin    → tableau CRUD complet
-   Autres   → annuaire lecture seule en cartes
    ───────────────────────────────────────────── */
 function TeamSection({ addToast, isAdmin }) {
   const [users,         setUsers]         = useState([]);
+  const [departements,  setDepartements]  = useState([]);
   const [loading,       setLoading]       = useState(true);
   const [view,          setView]          = useState('list');
   const [form,          setForm]          = useState(EMPTY_FORM);
@@ -257,7 +665,20 @@ function TeamSection({ addToast, isAdmin }) {
     }
   }, [addToast]);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  const fetchDepartements = useCallback(async () => {
+    try {
+      const res  = await fetch(`${API_BASE}/departements`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success) setDepartements((data.departements || []).map(d => d.dept_nom));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchDepartements();
+  }, [fetchUsers, fetchDepartements]);
+
   useEffect(() => { setPage(1); }, [search, filterRole]);
 
   const validate = () => {
@@ -322,9 +743,8 @@ function TeamSection({ addToast, isAdmin }) {
     const newStatus = u.status === 'actif' ? 'inactif' : 'actif';
     try {
       const res = await fetch(`${API_BASE}/users/${u.id}/statut`, {
-        method:  'PATCH',
-        headers: authHeaders(),
-        body:    JSON.stringify({ app_statut: newStatus }),
+        method: 'PATCH', headers: authHeaders(),
+        body: JSON.stringify({ app_statut: newStatus }),
       });
       if (!res.ok) throw new Error('Erreur statut');
       addToast(`${u.prenom} ${newStatus === 'actif' ? 'activé' : 'désactivé'}.`, 'info');
@@ -342,18 +762,17 @@ function TeamSection({ addToast, isAdmin }) {
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  // ── Formulaire CRUD (admin seulement) ──────
   if ((view === 'create' || view === 'edit') && isAdmin) {
     return (
       <UserForm
         view={view} form={form} setForm={setForm}
         formErrors={formErrors} saving={saving}
+        departements={departements}
         onBack={() => setView('list')} onSave={handleSave}
       />
     );
   }
 
-  // ── Annuaire lecture seule (non-admin) ──────
   if (!isAdmin) {
     const q       = search.toLowerCase();
     const visible = users.filter(u =>
@@ -396,7 +815,6 @@ function TeamSection({ addToast, isAdmin }) {
     );
   }
 
-  // ── Tableau admin ───────────────────────────
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -439,7 +857,6 @@ function TeamSection({ addToast, isAdmin }) {
               <p key={h} style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.08em', color: 'var(--color-text-muted)' }}>{h}</p>
             ))}
           </div>
-
           {paginated.map((u, i) => (
             <div
               key={u.id}
@@ -459,42 +876,34 @@ function TeamSection({ addToast, isAdmin }) {
               <StatusDot status={u.status} />
               <div style={{ display: 'flex', gap: 6 }}>
                 <button title="Modifier" onClick={() => openEdit(u)}
-                  style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 9px', cursor: 'pointer', fontSize: 13, transition: 'all var(--transition-normal)' }}
+                  style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 9px', cursor: 'pointer', fontSize: 13 }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-accent)'; e.currentTarget.style.color = 'var(--color-accent)'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.color = 'inherit'; }}
                 >✏️</button>
-                <button
-                  title={u.status === 'actif' ? 'Désactiver' : 'Activer'}
-                  onClick={() => toggleStatus(u)}
-                  style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 9px', cursor: 'pointer', fontSize: 13, transition: 'all var(--transition-normal)' }}
+                <button title={u.status === 'actif' ? 'Désactiver' : 'Activer'} onClick={() => toggleStatus(u)}
+                  style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 9px', cursor: 'pointer', fontSize: 13 }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = '#f59e0b'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'}
                 >{u.status === 'actif' ? '⏸' : '▶️'}</button>
                 <button title="Retirer" onClick={() => setConfirmDelete(u)}
-                  style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 9px', cursor: 'pointer', fontSize: 13, transition: 'all var(--transition-normal)' }}
+                  style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 9px', cursor: 'pointer', fontSize: 13 }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = '#ef4444'; e.currentTarget.style.background = '#fef2f2'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'var(--color-background-elevated)'; }}
                 >🗑</button>
               </div>
             </div>
           ))}
-
           {totalPages > 1 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-background-tertiary)' }}>
               <p style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
                 {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} sur {filtered.length}
               </p>
               <div style={{ display: 'flex', gap: 4 }}>
-                <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
-                  style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 10px', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: 12, opacity: page === 1 ? 0.4 : 1, fontFamily: 'var(--font-sans)' }}>← Préc.</button>
+                <button disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 10px', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: 12, opacity: page === 1 ? 0.4 : 1, fontFamily: 'var(--font-sans)' }}>← Préc.</button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                  <button key={n} onClick={() => setPage(n)}
-                    style={{ background: n === page ? 'var(--color-accent)' : 'var(--color-background-elevated)', border: `1px solid ${n === page ? 'var(--color-accent)' : 'var(--color-border)'}`, borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: n === page ? 'white' : 'var(--color-text-primary)', fontWeight: n === page ? 600 : 400, minWidth: 32, fontFamily: 'var(--font-sans)' }}>
-                    {n}
-                  </button>
+                  <button key={n} onClick={() => setPage(n)} style={{ background: n === page ? 'var(--color-accent)' : 'var(--color-background-elevated)', border: `1px solid ${n === page ? 'var(--color-accent)' : 'var(--color-border)'}`, borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: n === page ? 'white' : 'var(--color-text-primary)', fontWeight: n === page ? 600 : 400, minWidth: 32, fontFamily: 'var(--font-sans)' }}>{n}</button>
                 ))}
-                <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}
-                  style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 10px', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: 12, opacity: page === totalPages ? 0.4 : 1, fontFamily: 'var(--font-sans)' }}>Suiv. →</button>
+                <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} style={{ background: 'var(--color-background-elevated)', border: '1px solid var(--color-border)', borderRadius: 7, padding: '5px 10px', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: 12, opacity: page === totalPages ? 0.4 : 1, fontFamily: 'var(--font-sans)' }}>Suiv. →</button>
               </div>
             </div>
           )}
@@ -523,8 +932,8 @@ function TeamSection({ addToast, isAdmin }) {
    PAGE PRINCIPALE
    ───────────────────────────────────────────── */
 export default function SettingsPage() {
-  const { user }                   = useAuth();
-  const { addToast }               = useNotif();
+  const { user }                         = useAuth();
+  const { addToast }                     = useNotif();
   const { isAdmin, peutGererParametres } = usePermissions();
 
   const [activeSection, setActiveSection] = useState('profile');
@@ -566,12 +975,9 @@ export default function SettingsPage() {
         {/* Contenu principal */}
         <div style={{ background: 'var(--color-background-secondary)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '24px 28px' }}>
 
-          {/* ── Équipe ── */}
-          {activeSection === 'team' && (
-            <TeamSection addToast={addToast} isAdmin={isAdmin} />
-          )}
+          {activeSection === 'team'         && <TeamSection         addToast={addToast} isAdmin={isAdmin} />}
+          {activeSection === 'departements' && <DepartementsSection addToast={addToast} isAdmin={isAdmin} />}
 
-          {/* ── Profil ── accessible à tous */}
           {activeSection === 'profile' && (
             <div>
               <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 600, marginBottom: 24 }}>Profil utilisateur</h3>
@@ -599,7 +1005,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* ── Notifications ── accessible à tous */}
           {activeSection === 'notifications' && (
             <div>
               <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 600, marginBottom: 24 }}>Préférences de notifications</h3>
@@ -617,7 +1022,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* ── Sécurité ── accessible à tous */}
           {activeSection === 'security' && (
             <div>
               <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 600, marginBottom: 24 }}>Sécurité du compte</h3>
@@ -639,7 +1043,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* ── Apparence ── accessible à tous */}
           {activeSection === 'appearance' && (
             <div>
               <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 600, marginBottom: 24 }}>Apparence</h3>
@@ -659,7 +1062,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* ── Plan & facturation ── lecture seule pour non-admin */}
           {activeSection === 'plan' && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -675,7 +1077,7 @@ export default function SettingsPage() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: 11, color: 'var(--color-text-muted)', letterSpacing: '.06em', marginBottom: 4 }}>PROCHAIN RENOUVELLEMENT</p>
-                    <p style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500 }}>01/04/2025</p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500 }}>01/04/2025</p>
                   </div>
                 </div>
               </div>
@@ -690,13 +1092,8 @@ export default function SettingsPage() {
                     <p style={{ fontFamily: 'var(--font-sans)', fontSize: 18, fontWeight: 600, marginBottom: 2 }}>{p.price}</p>
                     <p style={{ fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 12 }}>{p.unit}</p>
                     {p.features.map(f => <p key={f} style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 3 }}>· {f}</p>)}
-                    {/* Boutons d'action : admin uniquement */}
                     {!p.current && peutGererParametres && (
-                      <Button
-                        variant={p.name === 'Entreprise' ? 'ghost' : 'primary'} size="sm"
-                        style={{ marginTop: 12, width: '100%' }}
-                        onClick={() => addToast(`Redirection vers ${p.name}…`, 'info')}
-                      >
+                      <Button variant={p.name === 'Entreprise' ? 'ghost' : 'primary'} size="sm" style={{ marginTop: 12, width: '100%' }} onClick={() => addToast(`Redirection vers ${p.name}…`, 'info')}>
                         {p.name === 'Entreprise' ? 'Nous contacter' : 'Passer à Pro'}
                       </Button>
                     )}
@@ -707,7 +1104,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* ── Intégrations ── lecture seule pour non-admin */}
           {activeSection === 'integrations' && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -730,12 +1126,8 @@ export default function SettingsPage() {
                     </div>
                     <p style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{intg.desc}</p>
                   </div>
-                  {/* Bouton Connecter/Déconnecter : admin uniquement */}
                   {peutGererParametres ? (
-                    <Button
-                      variant={intg.connected ? 'ghost' : 'secondary'} size="sm"
-                      onClick={() => addToast(intg.connected ? `${intg.name} déconnecté.` : `${intg.name} connecté !`, intg.connected ? 'warning' : 'success')}
-                    >
+                    <Button variant={intg.connected ? 'ghost' : 'secondary'} size="sm" onClick={() => addToast(intg.connected ? `${intg.name} déconnecté.` : `${intg.name} connecté !`, intg.connected ? 'warning' : 'success')}>
                       {intg.connected ? 'Déconnecter' : 'Connecter'}
                     </Button>
                   ) : (

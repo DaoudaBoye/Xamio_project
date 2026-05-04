@@ -1,7 +1,6 @@
 /**
- * Xamio — EventsPage v2
- * Design: inspiré de MeetingsPage — Refined Clarity (Linear × Arc)
- * Tokens CSS identiques, mêmes patterns d'architecture
+ * Xamio — EventsPage v2.1
+ * Icônes custom artisanales (non-génériques)
  */
 
 import React, {
@@ -130,26 +129,152 @@ function useInsights(events) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   ICONS
+   ICÔNES ARTISANALES
+   Dessinées sur grille 16×16, viewBox commun, stroke-width cohérent.
+   Chaque icône a un détail distinctif qui la sort du générique.
    ════════════════════════════════════════════════════════════════ */
 const Ic = {
-  plus:      ()=><svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
-  dots:      ()=><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.4" fill="currentColor"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="13" cy="8" r="1.4" fill="currentColor"/></svg>,
-  cal:       ()=><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M5 1v3M11 1v3M2 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
-  clk:       ()=><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/><path d="M8 5v3.5l2.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
-  loc:       ()=><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a4.5 4.5 0 014.5 4.5c0 3-4.5 8.5-4.5 8.5S3.5 9 3.5 6A4.5 4.5 0 018 1.5z" stroke="currentColor" strokeWidth="1.5"/><circle cx="8" cy="6" r="1.5" stroke="currentColor" strokeWidth="1.3"/></svg>,
-  users:     ()=><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.4"/><path d="M1 14c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><circle cx="11.5" cy="5" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M13.5 13c0-2-.9-3.76-2.26-5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
-  check:     ()=><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  trash:     ()=><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 5h10M6 5V3h4v2M5 5l.5 8h5L11 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  send:      ()=><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M14 2L2 7l5 2 2 5 5-12z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>,
-  warn:      ()=><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2L14.5 13H1.5L8 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 7v3M8 11.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
-  search:    ()=><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
-  close:     ()=><svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
-  lightning: ()=><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M9 1L3 9h5l-1 6 6-8H8l1-6z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>,
-  chevDown:  ()=><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  chevRight: ()=><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  filter:    ()=><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 3h12M4 8h8M6 13h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>,
-  edit:      ()=><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M11 2l3 3-8 8H3v-3l8-8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>,
+  /* Plus — extrémités en équerre (linecap square) */
+  plus: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <path d="M8 2.5V13.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square"/>
+      <path d="M2.5 8H13.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square"/>
+    </svg>
+  ),
+
+  /* Dots — trois petits carrés arrondis (pas des cercles) */
+  dots: () => (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <rect x="2.5" y="6.5" width="3" height="3" rx="1" fill="currentColor"/>
+      <rect x="6.5" y="6.5" width="3" height="3" rx="1" fill="currentColor"/>
+      <rect x="10.5" y="6.5" width="3" height="3" rx="1" fill="currentColor"/>
+    </svg>
+  ),
+
+  /* Calendar — cadre + barre + deux petits carrés de jour */
+  cal: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <rect x="1.5" y="3" width="13" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M1.5 7H14.5" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M5 1.5V4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      <path d="M11 1.5V4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      <rect x="4.5" y="9.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="9.5" y="9.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+    </svg>
+  ),
+
+  /* Clock — aiguille des minutes angulaire (pas arrondie) */
+  clk: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M8 4.5V8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      <path d="M8 8.5L11 10.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  ),
+
+  /* Location — pin avec point intérieur plein */
+  loc: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6C3.5 9.5 8 14.5 8 14.5C8 14.5 12.5 9.5 12.5 6C12.5 3.5 10.5 1.5 8 1.5Z" stroke="currentColor" strokeWidth="1.4"/>
+      <circle cx="8" cy="6" r="1.7" fill="currentColor"/>
+    </svg>
+  ),
+
+  /* Users — deux silhouettes emboîtées, pas symétriques */
+  users: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M1 14C1 11 3.2 9 6 9C8.8 9 11 11 11 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="11.5" cy="4.5" r="2" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M13.5 13C13.5 11.3 12.6 9.8 11.3 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  ),
+
+  /* Check — angle vif, trait épais */
+  check: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <path d="M2.5 8.5L6 12L13.5 4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+
+  /* Trash — couvercle séparé + deux traits intérieurs */
+  trash: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <path d="M3 5H13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M6 5V3H10V5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M4 5L4.5 13.5H11.5L12 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M6.5 7.5V11M9.5 7.5V11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  ),
+
+  /* Send — avion en papier triangle fermé */
+  send: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <path d="M13.5 2.5L1.5 7L6.5 9.5M13.5 2.5L9 14.5L6.5 9.5M13.5 2.5L6.5 9.5" stroke="currentColor" strokeWidth="1.45" strokeLinejoin="round"/>
+    </svg>
+  ),
+
+  /* Warning — triangle avec tiret + point rond */
+  warn: () => (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <path d="M8 1.5L14.5 13.5H1.5L8 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <line x1="8" y1="6" x2="8" y2="10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      <circle cx="8" cy="11.8" r="0.85" fill="currentColor"/>
+    </svg>
+  ),
+
+  /* Search — loupe avec manche légèrement plus épais */
+  search: () => (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" strokeWidth="1.6"/>
+      <path d="M10 10L14 14" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"/>
+    </svg>
+  ),
+
+  /* Close — croix à angles arrondis, épaisseur uniforme */
+  close: () => (
+    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+      <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  ),
+
+  /* Lightning — éclair avec corps plein et pointe nette */
+  lightning: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <path d="M9.5 1.5L3.5 9H7.5L6.5 14.5L13 7H9L9.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+    </svg>
+  ),
+
+  /* Chevron down */
+  chevDown: () => (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+      <path d="M2 4L6 8.5L10 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+
+  /* Chevron right */
+  chevRight: () => (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+      <path d="M4 2L8.5 6L4 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+
+  /* Filter — trois barres horizontales dégradées en longueur */
+  filter: () => (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+      <path d="M2 3.5H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"/>
+      <path d="M4.5 8H11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"/>
+      <path d="M7 12.5H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"/>
+    </svg>
+  ),
+
+  /* Edit — crayon avec biseau + trait de reflet interne */
+  edit: () => (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+      <path d="M9.5 3.5L12.5 6.5L5.5 13.5H2.5V10.5L9.5 3.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M8 5L11 8" stroke="currentColor" strokeWidth="1.1"/>
+    </svg>
+  ),
 };
 
 /* ════════════════════════════════════════════════════════════════
@@ -157,41 +282,80 @@ const Ic = {
    ════════════════════════════════════════════════════════════════ */
 function IconBtn({ children, onClick, active, danger, title, size=28 }) {
   const [h,hp]=useHover();
-  return <button onClick={onClick} title={title} {...hp} style={{width:size,height:size,display:'flex',alignItems:'center',justifyContent:'center',background:active?T.bg3:h?T.bg2:'transparent',border:`1px solid ${active||h?T.bd1:'transparent'}`,borderRadius:T.r6,cursor:'pointer',flexShrink:0,color:danger&&h?'var(--color-danger)':active?T.t1:h?T.t2:T.t3,transition:'all .13s'}}>{children}</button>;
+  return (
+    <button onClick={onClick} title={title} {...hp}
+      style={{width:size,height:size,display:'flex',alignItems:'center',justifyContent:'center',background:active?T.bg3:h?T.bg2:'transparent',border:`1px solid ${active||h?T.bd1:'transparent'}`,borderRadius:T.r6,cursor:'pointer',flexShrink:0,color:danger&&h?'var(--color-danger)':active?T.t1:h?T.t2:T.t3,transition:'all .13s'}}>
+      {children}
+    </button>
+  );
 }
 
 function Avatar({ name='', size=22 }) {
   const color=hashColor(name); const bg=color+'22';
-  return <span style={{width:size,height:size,borderRadius:'50%',background:bg,border:`1.5px solid ${color}44`,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:size*0.38,fontWeight:700,color,flexShrink:0,lineHeight:1,fontFamily:'var(--font-sans)'}}>{initials(name)}</span>;
+  return (
+    <span style={{width:size,height:size,borderRadius:'50%',background:bg,border:`1.5px solid ${color}44`,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:size*0.38,fontWeight:700,color,flexShrink:0,lineHeight:1,fontFamily:'var(--font-sans)'}}>
+      {initials(name)}
+    </span>
+  );
 }
 
 function TypePill({ typeKey }) {
   const c=T.type[typeKey]||T.type.internal;
-  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'2px 8px',borderRadius:T.r20,background:c.bg,fontSize:10,fontWeight:600,color:c.fg,border:`1px solid ${c.border}`,whiteSpace:'nowrap',letterSpacing:'.03em'}}><span style={{width:4,height:4,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}</span>;
+  return (
+    <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'2px 8px',borderRadius:T.r20,background:c.bg,fontSize:10,fontWeight:600,color:c.fg,border:`1px solid ${c.border}`,whiteSpace:'nowrap',letterSpacing:'.03em'}}>
+      <span style={{width:4,height:4,borderRadius:'50%',background:c.dot,flexShrink:0}}/>
+      {c.label}
+    </span>
+  );
 }
 
 function StatusPill({ statusKey }) {
   const c=T.status[statusKey]||T.status.planned;
-  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'2px 8px',borderRadius:T.r20,background:c.bg,fontSize:10,fontWeight:500,color:c.fg,border:`1px solid ${c.border}`,whiteSpace:'nowrap'}}><span style={{width:4,height:4,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}</span>;
+  return (
+    <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'2px 8px',borderRadius:T.r20,background:c.bg,fontSize:10,fontWeight:500,color:c.fg,border:`1px solid ${c.border}`,whiteSpace:'nowrap'}}>
+      <span style={{width:4,height:4,borderRadius:'50%',background:c.dot,flexShrink:0}}/>
+      {c.label}
+    </span>
+  );
 }
 
 function Field({ as:As='input', style, ...props }) {
   const[f,sf]=useState(false);
-  return <As {...props} style={{width:'100%',background:T.bg3,border:`1px solid ${f?T.bd2:T.bd0}`,borderRadius:T.r8,padding:As==='textarea'?'9px 13px':'0 13px',height:As==='textarea'?undefined:36,color:T.t1,fontSize:13,lineHeight:1.6,outline:'none',fontFamily:'var(--font-sans)',boxSizing:'border-box',transition:'border-color .15s, box-shadow .15s',boxShadow:f?`0 0 0 3px ${T.accm}`:'none',caretColor:'var(--color-warning)',...style}} onFocus={()=>sf(true)} onBlur={()=>sf(false)}/>;
+  return (
+    <As {...props}
+      style={{width:'100%',background:T.bg3,border:`1px solid ${f?T.bd2:T.bd0}`,borderRadius:T.r8,padding:As==='textarea'?'9px 13px':'0 13px',height:As==='textarea'?undefined:36,color:T.t1,fontSize:13,lineHeight:1.6,outline:'none',fontFamily:'var(--font-sans)',boxSizing:'border-box',transition:'border-color .15s, box-shadow .15s',boxShadow:f?`0 0 0 3px ${T.accm}`:'none',caretColor:'var(--color-warning)',...style}}
+      onFocus={()=>sf(true)} onBlur={()=>sf(false)}
+    />
+  );
 }
 
 function PrimaryBtn({ children, onClick, danger, small }) {
-  const[h,hp]=useHover(); const bg=danger?(h?'var(--color-danger)':'var(--color-danger)'):(h?T.acc2:T.acc);
-  return <button onClick={onClick} {...hp} style={{display:'inline-flex',alignItems:'center',gap:6,padding:small?'6px 14px':'9px 18px',borderRadius:T.r8,border:'none',background:bg,color:'#FFFFFF',fontSize:small?12:13,fontWeight:700,cursor:'pointer',fontFamily:'var(--font-sans)',transition:'all .15s',boxShadow:h?`0 4px 20px ${T.acc}55`:`0 2px 8px ${T.acc}33`,transform:h?'translateY(-1px)':'none',whiteSpace:'nowrap'}}>{children}</button>;
+  const[h,hp]=useHover();
+  const bg=danger?(h?'var(--color-danger)':'var(--color-danger)'):(h?T.acc2:T.acc);
+  return (
+    <button onClick={onClick} {...hp}
+      style={{display:'inline-flex',alignItems:'center',gap:6,padding:small?'6px 14px':'9px 18px',borderRadius:T.r8,border:'none',background:bg,color:'#FFFFFF',fontSize:small?12:13,fontWeight:700,cursor:'pointer',fontFamily:'var(--font-sans)',transition:'all .15s',boxShadow:h?`0 4px 20px ${T.acc}55`:`0 2px 8px ${T.acc}33`,transform:h?'translateY(-1px)':'none',whiteSpace:'nowrap'}}>
+      {children}
+    </button>
+  );
 }
 
 function GhostBtn({ children, onClick }) {
   const[h,hp]=useHover();
-  return <button onClick={onClick} {...hp} style={{padding:'8px 16px',borderRadius:T.r8,border:`1px solid ${T.bd1}`,background:h?T.bg2:'transparent',fontSize:13,fontWeight:450,color:h?T.t1:T.t2,cursor:'pointer',fontFamily:'var(--font-sans)',transition:'all .15s',whiteSpace:'nowrap'}}>{children}</button>;
+  return (
+    <button onClick={onClick} {...hp}
+      style={{padding:'8px 16px',borderRadius:T.r8,border:`1px solid ${T.bd1}`,background:h?T.bg2:'transparent',fontSize:13,fontWeight:450,color:h?T.t1:T.t2,cursor:'pointer',fontFamily:'var(--font-sans)',transition:'all .15s',whiteSpace:'nowrap'}}>
+      {children}
+    </button>
+  );
 }
 
 function FormLabel({ children, required }) {
-  return <label style={{display:'block',fontSize:12,fontWeight:500,color:T.t2,marginBottom:5}}>{children}{required&&<span style={{color:'var(--color-danger)',marginLeft:3}}>*</span>}</label>;
+  return (
+    <label style={{display:'block',fontSize:12,fontWeight:500,color:T.t2,marginBottom:5}}>
+      {children}{required&&<span style={{color:'var(--color-danger)',marginLeft:3}}>*</span>}
+    </label>
+  );
 }
 
 /* ── Dropdown ── */
@@ -201,19 +365,35 @@ function Dropdown({ label, options, value, onChange, icon }) {
   const current=options.find(o=>o.v===value); const[h,hp]=useHover();
   return (
     <div ref={ref} style={{position:'relative',flexShrink:0}}>
-      <button onClick={()=>setOpen(o=>!o)} {...hp} style={{display:'flex',alignItems:'center',gap:7,padding:'0 12px',height:34,borderRadius:T.r8,border:`1px solid ${open||h?T.bd2:T.bd0}`,background:open?T.bg2:h?T.bg2:T.bg1,color:T.t1,fontSize:12.5,fontWeight:500,cursor:'pointer',fontFamily:'var(--font-sans)',transition:'all .13s',whiteSpace:'nowrap'}}>
-        {icon&&<span style={{color:T.t3,lineHeight:0}}>{icon}</span>}{current?.l||label}
-        <span style={{color:T.t3,lineHeight:0,marginLeft:2,transform:open?'rotate(180deg)':'none',transition:'transform .15s'}}><Ic.chevDown/></span>
+      <button onClick={()=>setOpen(o=>!o)} {...hp}
+        style={{display:'flex',alignItems:'center',gap:7,padding:'0 12px',height:34,borderRadius:T.r8,border:`1px solid ${open||h?T.bd2:T.bd0}`,background:open?T.bg2:h?T.bg2:T.bg1,color:T.t1,fontSize:12.5,fontWeight:500,cursor:'pointer',fontFamily:'var(--font-sans)',transition:'all .13s',whiteSpace:'nowrap'}}>
+        {icon&&<span style={{color:T.t3,lineHeight:0}}>{icon}</span>}
+        {current?.l||label}
+        <span style={{color:T.t3,lineHeight:0,marginLeft:2,transform:open?'rotate(180deg)':'none',transition:'transform .15s'}}>
+          <Ic.chevDown/>
+        </span>
       </button>
-      {open&&<div style={{position:'absolute',top:40,left:0,zIndex:300,background:T.bg2,border:`1px solid ${T.bd1}`,borderRadius:T.r10,padding:5,minWidth:200,boxShadow:T.shadowDropdown,animation:'xm-menu-pop .14s cubic-bezier(.22,1,.36,1)'}}>
-        {options.map(o=>{const sel=o.v===value;return<DropItem key={o.v} label={o.l} selected={sel} onClick={()=>{onChange(o.v);setOpen(false);}}/>;})}</div>}
+      {open&&(
+        <div style={{position:'absolute',top:40,left:0,zIndex:300,background:T.bg2,border:`1px solid ${T.bd1}`,borderRadius:T.r10,padding:5,minWidth:200,boxShadow:T.shadowDropdown,animation:'xm-menu-pop .14s cubic-bezier(.22,1,.36,1)'}}>
+          {options.map(o=>{
+            const sel=o.v===value;
+            return <DropItem key={o.v} label={o.l} selected={sel} onClick={()=>{onChange(o.v);setOpen(false);}}/>;
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 function DropItem({ label, selected, onClick }) {
   const[h,hp]=useHover();
-  return <button onClick={onClick} {...hp} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:T.r6,border:'none',background:h?T.bg3:'transparent',color:selected?T.t1:T.t2,fontSize:12.5,fontWeight:selected?500:400,cursor:'pointer',fontFamily:'var(--font-sans)',textAlign:'left',transition:'all .1s'}}>{label}{selected&&<span style={{color:T.acc,lineHeight:0}}><Ic.check/></span>}</button>;
+  return (
+    <button onClick={onClick} {...hp}
+      style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 10px',borderRadius:T.r6,border:'none',background:h?T.bg3:'transparent',color:selected?T.t1:T.t2,fontSize:12.5,fontWeight:selected?500:400,cursor:'pointer',fontFamily:'var(--font-sans)',textAlign:'left',transition:'all .1s'}}>
+      {label}
+      {selected&&<span style={{color:T.acc,lineHeight:0}}><Ic.check/></span>}
+    </button>
+  );
 }
 
 /* ── Action Menu ── */
@@ -225,10 +405,10 @@ function ActionMenu({ event, onDelete, onInvite, onConfirm, onCancel }) {
   const items = [];
   if (event.status !== 'cancelled') {
     items.push({ icon:<Ic.send/>, label:'Envoyer les invitations', fn:onInvite });
-    if (event.status === 'planned') items.push({ icon:<Ic.check/>, label:'Confirmer l\'événement', fn:onConfirm });
+    if (event.status === 'planned') items.push({ icon:<Ic.check/>, label:"Confirmer l'événement", fn:onConfirm });
     if (event.status === 'confirmed') items.push({ icon:<Ic.edit/>, label:'Modifier', fn:() => {} });
     items.push({ sep:true });
-    items.push({ icon:<Ic.trash/>, label:'Annuler l\'événement', fn:onCancel, danger:true });
+    items.push({ icon:<Ic.trash/>, label:"Annuler l'événement", fn:onCancel, danger:true });
   }
   items.push({ sep: items.length > 0 });
   items.push({ icon:<Ic.trash/>, label:'Supprimer', fn:onDelete, danger:true });
@@ -236,9 +416,9 @@ function ActionMenu({ event, onDelete, onInvite, onConfirm, onCancel }) {
   return (
     <div ref={ref} style={{position:'relative',flexShrink:0}} onClick={e=>e.stopPropagation()}>
       <IconBtn onClick={()=>setOpen(o=>!o)} active={open}><Ic.dots/></IconBtn>
-      {open && (
+      {open&&(
         <div style={{position:'absolute',right:0,top:34,zIndex:200,background:T.bg2,border:`1px solid ${T.bd1}`,borderRadius:T.r10,padding:5,minWidth:210,boxShadow:T.shadowDropdown,animation:'xm-menu-pop .14s cubic-bezier(.22,1,.36,1)'}}>
-          {items.map((item,i) =>
+          {items.map((item,i)=>
             item.sep
               ? <div key={i} style={{height:1,background:T.bd0,margin:'4px 0'}}/>
               : <ActionItem key={i} {...item} onClick={()=>{setOpen(false);item.fn();}}/>
@@ -251,7 +431,13 @@ function ActionMenu({ event, onDelete, onInvite, onConfirm, onCancel }) {
 
 function ActionItem({ icon, label, danger, onClick }) {
   const[h,hp]=useHover(); const color=danger?'var(--color-danger)':T.t2;
-  return <button onClick={onClick} {...hp} style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'7px 10px',borderRadius:T.r6,border:'none',background:h?(danger?'rgba(240,112,112,.07)':T.bg3):'transparent',cursor:'pointer',fontSize:12.5,fontWeight:450,color,fontFamily:'var(--font-sans)',textAlign:'left',transition:'all .1s'}}><span style={{lineHeight:0,opacity:.85,flexShrink:0}}>{icon}</span>{label}</button>;
+  return (
+    <button onClick={onClick} {...hp}
+      style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'7px 10px',borderRadius:T.r6,border:'none',background:h?(danger?'rgba(240,112,112,.07)':T.bg3):'transparent',cursor:'pointer',fontSize:12.5,fontWeight:450,color,fontFamily:'var(--font-sans)',textAlign:'left',transition:'all .1s'}}>
+      <span style={{lineHeight:0,opacity:.85,flexShrink:0}}>{icon}</span>
+      {label}
+    </button>
+  );
 }
 
 /* ── Modal ── */
@@ -272,7 +458,12 @@ function Modal({ open, onClose, title, width=520, children }) {
 }
 
 function ModalFooter({ onCancel, onConfirm, cancelLabel='Annuler', confirmLabel='Confirmer', danger=false }) {
-  return <div style={{display:'flex',gap:8,justifyContent:'flex-end',paddingTop:20,borderTop:`1px solid ${T.bd0}`,marginTop:4}}><GhostBtn onClick={onCancel}>{cancelLabel}</GhostBtn><PrimaryBtn onClick={onConfirm} danger={danger}>{confirmLabel}</PrimaryBtn></div>;
+  return (
+    <div style={{display:'flex',gap:8,justifyContent:'flex-end',paddingTop:20,borderTop:`1px solid ${T.bd0}`,marginTop:4}}>
+      <GhostBtn onClick={onCancel}>{cancelLabel}</GhostBtn>
+      <PrimaryBtn onClick={onConfirm} danger={danger}>{confirmLabel}</PrimaryBtn>
+    </div>
+  );
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -281,11 +472,21 @@ function ModalFooter({ onCancel, onConfirm, cancelLabel='Annuler', confirmLabel=
 function StatsHeader({ events, insights }) {
   return (
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px,1fr))',gap:10,marginBottom:24}} className="xm-stats-row">
-      <StatCard value={insights.total} label="Événements" accent={T.acc}
-        sub={<><span style={{color:T.t3,fontSize:11,display:'flex',alignItems:'center',gap:4}}><Ic.users/><span style={{fontFamily:'var(--font-mono)'}}>{insights.totalAttendees}</span><span style={{marginLeft:2}}>participants au total</span></span></>}
+      <StatCard
+        value={insights.total}
+        label="Événements"
+        accent={T.acc}
+        sub={
+          <span style={{color:T.t3,fontSize:11,display:'flex',alignItems:'center',gap:4}}>
+            <Ic.users/>
+            <span style={{fontFamily:'var(--font-mono)'}}>{insights.totalAttendees}</span>
+            <span style={{marginLeft:2}}>participants au total</span>
+          </span>
+        }
       />
       {STAT_CONFIG.map(({key,label,dot})=>{
-        const n=insights.byStatus[key]||0; const pct=insights.total>0?Math.round(n/insights.total*100):0;
+        const n=insights.byStatus[key]||0;
+        const pct=insights.total>0?Math.round(n/insights.total*100):0;
         return <StatCard key={key} value={n} label={label} accent={dot} pct={pct}/>;
       })}
     </div>
@@ -300,9 +501,14 @@ function StatCard({ value, label, accent, pct, sub }) {
         <span style={{fontSize:26,fontWeight:700,color:T.t1,letterSpacing:'-1px',fontFamily:'var(--font-sans)',lineHeight:1}}>{value}</span>
         {pct!==undefined&&<span style={{fontSize:11,color:T.t3,fontFamily:'var(--font-mono)',marginBottom:2}}>{pct}%</span>}
       </div>
-      {pct!==undefined&&<div style={{height:2,background:T.bg3,borderRadius:99,marginBottom:8,overflow:'hidden'}}><div style={{height:'100%',background:accent,borderRadius:99,width:`${pct}%`,transformOrigin:'left',animation:'xm-bar .7s cubic-bezier(.22,1,.36,1)'}}/></div>}
+      {pct!==undefined&&(
+        <div style={{height:2,background:T.bg3,borderRadius:99,marginBottom:8,overflow:'hidden'}}>
+          <div style={{height:'100%',background:accent,borderRadius:99,width:`${pct}%`,transformOrigin:'left',animation:'xm-bar .7s cubic-bezier(.22,1,.36,1)'}}/>
+        </div>
+      )}
       <div style={{fontSize:11.5,color:T.t3,fontWeight:500,display:'flex',alignItems:'center',gap:5}}>
-        {pct!==undefined&&<span style={{width:6,height:6,borderRadius:'50%',background:accent,flexShrink:0}}/>}{label}
+        {pct!==undefined&&<span style={{width:6,height:6,borderRadius:'50%',background:accent,flexShrink:0}}/>}
+        {label}
       </div>
       {sub&&<div style={{marginTop:6,display:'flex',alignItems:'center'}}>{sub}</div>}
     </div>
@@ -311,14 +517,27 @@ function StatCard({ value, label, accent, pct, sub }) {
 
 /* ── Next Event Banner ── */
 function NextEventBanner({ event, onClick }) {
-  const[h,hp]=useHover(); if(!event) return null;
+  const[h,hp]=useHover();
+  if(!event) return null;
   return (
-    <div {...hp} onClick={onClick} style={{marginBottom:20,padding:'12px 16px',borderRadius:T.r12,cursor:'pointer',background:T.bg1,border:`1px solid ${T.bd0}`,display:'flex',alignItems:'center',gap:14,transition:'all .15s',boxShadow:h?T.shadowDropdown:'none'}}>
-      <div style={{width:38,height:38,borderRadius:T.r8,flexShrink:0,background:T.accm,border:`1px solid ${T.accb}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{event.cover}</div>
+    <div {...hp} onClick={onClick}
+      style={{marginBottom:20,padding:'12px 16px',borderRadius:T.r12,cursor:'pointer',background:T.bg1,border:`1px solid ${T.bd0}`,display:'flex',alignItems:'center',gap:14,transition:'all .15s',boxShadow:h?T.shadowDropdown:'none'}}>
+      <div style={{width:38,height:38,borderRadius:T.r8,flexShrink:0,background:T.accm,border:`1px solid ${T.accb}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>
+        {event.cover}
+      </div>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}><span style={{fontSize:10.5,fontWeight:700,color:T.acc,letterSpacing:'.08em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:4}}><Ic.lightning/>Prochain événement</span><TypePill typeKey={event.type}/></div>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
+          <span style={{fontSize:10.5,fontWeight:700,color:T.acc,letterSpacing:'.08em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:4}}>
+            <Ic.lightning/>Prochain événement
+          </span>
+          <TypePill typeKey={event.type}/>
+        </div>
         <div style={{fontSize:13,fontWeight:600,color:T.t1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{event.title}</div>
-        <div style={{display:'flex',gap:12,fontSize:11,color:T.t3,marginTop:3,fontFamily:'var(--font-mono)'}}><span>{formatDate(event.date)}</span><span>{event.time||'—'}</span>{event.location&&<span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'var(--font-sans)'}}>{event.location}</span>}</div>
+        <div style={{display:'flex',gap:12,fontSize:11,color:T.t3,marginTop:3,fontFamily:'var(--font-mono)'}}>
+          <span>{formatDate(event.date)}</span>
+          <span>{event.time||'—'}</span>
+          {event.location&&<span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'var(--font-sans)'}}>{event.location}</span>}
+        </div>
       </div>
       <span style={{color:T.t3,lineHeight:0,flexShrink:0}}><Ic.chevRight/></span>
     </div>
@@ -334,78 +553,151 @@ function FiltersBar({ query, setQuery, typeFilter, setTypeFilter, statusFilter, 
     <div style={{marginBottom:20}}>
       <div className="xm-filters-row" style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
         <div style={{position:'relative',flex:'1 1 200px',minWidth:0}}>
-          <span style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',color:T.t3,pointerEvents:'none',lineHeight:0}}><Ic.search/></span>
-          <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Rechercher par titre, organisateur…"
+          <span style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',color:T.t3,pointerEvents:'none',lineHeight:0}}>
+            <Ic.search/>
+          </span>
+          <input
+            value={query}
+            onChange={e=>setQuery(e.target.value)}
+            placeholder="Rechercher par titre, organisateur…"
             style={{width:'100%',background:T.bg1,border:`1px solid ${T.bd0}`,borderRadius:T.r8,padding:'0 13px 0 35px',height:34,color:T.t1,fontSize:12.5,lineHeight:1.6,outline:'none',fontFamily:'var(--font-sans)',boxSizing:'border-box',transition:'border-color .13s, box-shadow .13s',caretColor:'var(--color-warning)'}}
             onFocus={e=>{e.target.style.borderColor=T.bd2;e.target.style.boxShadow=`0 0 0 3px ${T.accm}`;}}
-            onBlur={e=>{e.target.style.borderColor=T.bd0;e.target.style.boxShadow='none';}}/>
-          {query&&<button onClick={()=>setQuery('')} style={{position:'absolute',right:9,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:T.t3,lineHeight:0,padding:2}}><Ic.close/></button>}
+            onBlur={e=>{e.target.style.borderColor=T.bd0;e.target.style.boxShadow='none';}}
+          />
+          {query&&(
+            <button onClick={()=>setQuery('')} style={{position:'absolute',right:9,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:T.t3,lineHeight:0,padding:2}}>
+              <Ic.close/>
+            </button>
+          )}
         </div>
         <Dropdown label="Type" icon={<Ic.filter/>} options={TYPE_FILTERS} value={typeFilter} onChange={setTypeFilter}/>
         <Dropdown label="Statut" icon={<Ic.filter/>} options={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter}/>
-        {hasActiveFilters&&<button onClick={()=>{setQuery('');setTypeFilter('all');setStatusFilter('all');}} style={{display:'flex',alignItems:'center',gap:5,padding:'0 10px',height:34,borderRadius:T.r8,border:`1px solid ${T.bd0}`,background:'transparent',color:T.t3,fontSize:12,cursor:'pointer',fontFamily:'var(--font-sans)',transition:'all .13s',whiteSpace:'nowrap'}} onMouseEnter={e=>{e.currentTarget.style.color=T.t1;e.currentTarget.style.borderColor=T.bd1;}} onMouseLeave={e=>{e.currentTarget.style.color=T.t3;e.currentTarget.style.borderColor=T.bd0;}}><Ic.close/> Réinitialiser</button>}
+        {hasActiveFilters&&(
+          <button
+            onClick={()=>{setQuery('');setTypeFilter('all');setStatusFilter('all');}}
+            style={{display:'flex',alignItems:'center',gap:5,padding:'0 10px',height:34,borderRadius:T.r8,border:`1px solid ${T.bd0}`,background:'transparent',color:T.t3,fontSize:12,cursor:'pointer',fontFamily:'var(--font-sans)',transition:'all .13s',whiteSpace:'nowrap'}}
+            onMouseEnter={e=>{e.currentTarget.style.color=T.t1;e.currentTarget.style.borderColor=T.bd1;}}
+            onMouseLeave={e=>{e.currentTarget.style.color=T.t3;e.currentTarget.style.borderColor=T.bd0;}}
+          >
+            <Ic.close/> Réinitialiser
+          </button>
+        )}
       </div>
-      {(typeFilter!=='all'||statusFilter!=='all')&&<div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
-        {typeFilter!=='all'&&<ActiveChip label={TYPE_FILTERS.find(f=>f.v===typeFilter)?.l} onRemove={()=>setTypeFilter('all')}/>}
-        {statusFilter!=='all'&&<ActiveChip label={STATUS_FILTERS.find(f=>f.v===statusFilter)?.l} onRemove={()=>setStatusFilter('all')}/>}
-        <span style={{fontSize:11,color:T.t3,display:'flex',alignItems:'center',marginLeft:2}}>{activeCount} résultat{activeCount!==1?'s':''}</span>
-      </div>}
+      {(typeFilter!=='all'||statusFilter!=='all')&&(
+        <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+          {typeFilter!=='all'&&<ActiveChip label={TYPE_FILTERS.find(f=>f.v===typeFilter)?.l} onRemove={()=>setTypeFilter('all')}/>}
+          {statusFilter!=='all'&&<ActiveChip label={STATUS_FILTERS.find(f=>f.v===statusFilter)?.l} onRemove={()=>setStatusFilter('all')}/>}
+          <span style={{fontSize:11,color:T.t3,display:'flex',alignItems:'center',marginLeft:2}}>
+            {activeCount} résultat{activeCount!==1?'s':''}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
 
 function ActiveChip({ label, onRemove }) {
-  return <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:'2px 8px 2px 10px',borderRadius:T.r20,background:T.accm,border:`1px solid ${T.accb}`,fontSize:11,fontWeight:500,color:T.acc}}>{label}<button onClick={onRemove} style={{background:'none',border:'none',cursor:'pointer',color:T.acc,lineHeight:0,padding:1,opacity:.7,transition:'opacity .1s'}} onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='.7'}><Ic.close/></button></span>;
+  return (
+    <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:'2px 8px 2px 10px',borderRadius:T.r20,background:T.accm,border:`1px solid ${T.accb}`,fontSize:11,fontWeight:500,color:T.acc}}>
+      {label}
+      <button onClick={onRemove} style={{background:'none',border:'none',cursor:'pointer',color:T.acc,lineHeight:0,padding:1,opacity:.7,transition:'opacity .1s'}} onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='.7'}>
+        <Ic.close/>
+      </button>
+    </span>
+  );
 }
 
 /* ════════════════════════════════════════════════════════════════
    EVENT CARD
    ════════════════════════════════════════════════════════════════ */
 const EventCard = memo(function EventCard({ ev, isNext, index, onDelete, onInvite, onConfirm, onCancel, onClick }) {
-  const[h,hp]=useHover(); const isCancelled=ev.status==='cancelled';
+  const[h,hp]=useHover();
+  const isCancelled=ev.status==='cancelled';
   const borderColor=isNext&&!isCancelled?T.acc:h&&!isCancelled?T.bd2:isCancelled?'rgba(240,112,112,.15)':T.bd0;
+
   return (
-    <article className="xm-card-enter" {...(isCancelled?{}:hp)} onClick={isCancelled?undefined:onClick}
-      style={{background:h&&!isCancelled?T.bg2:T.bg1,border:`1px solid ${borderColor}`,borderRadius:T.r12,padding:'15px 16px',cursor:isCancelled?'default':'pointer',opacity:isCancelled?.55:1,position:'relative',overflow:'hidden',transition:'border-color .18s, box-shadow .18s, background .18s',boxShadow:isNext&&!isCancelled?`0 0 0 1px ${T.acc}33, 0 4px 20px ${T.acc}12`:h&&!isCancelled?T.shadowDropdown:'none',animationDelay:`${index*35}ms`,minWidth:0}}>
+    <article
+      className="xm-card-enter"
+      {...(isCancelled?{}:hp)}
+      onClick={isCancelled?undefined:onClick}
+      style={{background:h&&!isCancelled?T.bg2:T.bg1,border:`1px solid ${borderColor}`,borderRadius:T.r12,padding:'15px 16px',cursor:isCancelled?'default':'pointer',opacity:isCancelled?.55:1,position:'relative',overflow:'hidden',transition:'border-color .18s, box-shadow .18s, background .18s',boxShadow:isNext&&!isCancelled?`0 0 0 1px ${T.acc}33, 0 4px 20px ${T.acc}12`:h&&!isCancelled?T.shadowDropdown:'none',animationDelay:`${index*35}ms`,minWidth:0}}
+    >
       {isNext&&!isCancelled&&<div style={{position:'absolute',left:0,top:0,width:2,height:'100%',background:T.acc,borderRadius:'0 1px 1px 0'}}/>}
 
       {/* Header */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,marginBottom:12}}>
         <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0}}>
-          <div style={{width:42,height:42,borderRadius:10,background:T.bg3,border:`1px solid ${T.bd0}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{ev.cover}</div>
+          <div style={{width:42,height:42,borderRadius:10,background:T.bg3,border:`1px solid ${T.bd0}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>
+            {ev.cover}
+          </div>
           <div style={{minWidth:0}}>
-            <h3 style={{fontSize:13.5,fontWeight:600,lineHeight:1.4,marginBottom:6,color:isCancelled?T.t3:T.t1,textDecoration:isCancelled?'line-through':'none',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'var(--font-sans)'}}>{ev.title}</h3>
+            <h3 style={{fontSize:13.5,fontWeight:600,lineHeight:1.4,marginBottom:6,color:isCancelled?T.t3:T.t1,textDecoration:isCancelled?'line-through':'none',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'var(--font-sans)'}}>
+              {ev.title}
+            </h3>
             <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center'}}>
               <TypePill typeKey={ev.type}/>
               <StatusPill statusKey={ev.status}/>
-              {isNext&&!isCancelled&&<span style={{fontSize:10,fontWeight:700,color:T.acc,letterSpacing:'.07em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:3}}><Ic.lightning/>Prochain</span>}
+              {isNext&&!isCancelled&&(
+                <span style={{fontSize:10,fontWeight:700,color:T.acc,letterSpacing:'.07em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:3}}>
+                  <Ic.lightning/>Prochain
+                </span>
+              )}
             </div>
           </div>
         </div>
-        {!isCancelled&&<ActionMenu event={ev} onDelete={onDelete} onInvite={onInvite} onConfirm={onConfirm} onCancel={onCancel}/>}
+        {!isCancelled&&(
+          <ActionMenu event={ev} onDelete={onDelete} onInvite={onInvite} onConfirm={onConfirm} onCancel={onCancel}/>
+        )}
       </div>
 
       {/* Meta */}
       <div style={{display:'flex',gap:10,fontSize:11,color:T.t3,flexWrap:'wrap',alignItems:'center',fontFamily:'var(--font-mono)'}}>
         <MetaItem icon={<Ic.cal/>}>{formatDate(ev.date)}</MetaItem>
         <MetaItem icon={<Ic.clk/>}>{ev.time||'—'}</MetaItem>
-        {ev.location&&<MetaItem icon={<Ic.loc/>} style={{fontFamily:'var(--font-sans)',flex:'1 1 0',minWidth:0}}><span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'block'}}>{ev.location}</span></MetaItem>}
+        {ev.location&&(
+          <MetaItem icon={<Ic.loc/>} style={{fontFamily:'var(--font-sans)',flex:'1 1 0',minWidth:0}}>
+            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'block'}}>{ev.location}</span>
+          </MetaItem>
+        )}
       </div>
 
       {/* Organizer + attendees */}
-      {(ev.organizer||ev.attendees>0)&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10,paddingTop:10,borderTop:`1px solid ${T.bd0}`}}>
-        {ev.organizer&&<div style={{display:'flex',alignItems:'center',gap:6}}><Avatar name={ev.organizer} size={18}/><span style={{fontSize:11,color:T.t3}}>{ev.organizer}</span></div>}
-        {ev.attendees>0&&<div style={{display:'flex',alignItems:'center',gap:5,background:T.bg3,border:`1px solid ${T.bd0}`,borderRadius:T.r20,padding:'2px 8px'}}><span style={{color:T.t3,lineHeight:0,fontSize:10}}><Ic.users/></span><span style={{fontSize:11,fontFamily:'var(--font-mono)',fontWeight:600,color:T.t2}}>{ev.attendees}</span></div>}
-      </div>}
+      {(ev.organizer||ev.attendees>0)&&(
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10,paddingTop:10,borderTop:`1px solid ${T.bd0}`}}>
+          {ev.organizer&&(
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <Avatar name={ev.organizer} size={18}/>
+              <span style={{fontSize:11,color:T.t3}}>{ev.organizer}</span>
+            </div>
+          )}
+          {ev.attendees>0&&(
+            <div style={{display:'flex',alignItems:'center',gap:5,background:T.bg3,border:`1px solid ${T.bd0}`,borderRadius:T.r20,padding:'2px 8px'}}>
+              <span style={{color:T.t3,lineHeight:0,fontSize:10}}><Ic.users/></span>
+              <span style={{fontSize:11,fontFamily:'var(--font-mono)',fontWeight:600,color:T.t2}}>{ev.attendees}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Annulé */}
-      {isCancelled&&<div style={{marginTop:10,padding:'7px 10px',borderRadius:T.r8,background:'rgba(240,112,112,.07)',border:'1px solid rgba(240,112,112,.18)'}}><p style={{fontSize:11.5,fontWeight:600,color:'var(--color-danger)',margin:0,display:'flex',alignItems:'center',gap:6}}><Ic.warn/>Événement annulé</p></div>}
+      {isCancelled&&(
+        <div style={{marginTop:10,padding:'7px 10px',borderRadius:T.r8,background:'rgba(240,112,112,.07)',border:'1px solid rgba(240,112,112,.18)'}}>
+          <p style={{fontSize:11.5,fontWeight:600,color:'var(--color-danger)',margin:0,display:'flex',alignItems:'center',gap:6}}>
+            <Ic.warn/>Événement annulé
+          </p>
+        </div>
+      )}
     </article>
   );
 });
 
 function MetaItem({ icon, children, style }) {
-  return <span style={{display:'flex',alignItems:'center',gap:4,...style}}><span style={{lineHeight:0,opacity:.6,flexShrink:0}}>{icon}</span>{children}</span>;
+  return (
+    <span style={{display:'flex',alignItems:'center',gap:4,...style}}>
+      <span style={{lineHeight:0,opacity:.6,flexShrink:0}}>{icon}</span>
+      {children}
+    </span>
+  );
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -416,7 +708,9 @@ function EmptyState({ hasQuery, onAction }) {
     <div style={{textAlign:'center',padding:'72px 24px',background:T.bg1,borderRadius:T.r16,border:`1px solid ${T.bd0}`}}>
       <div style={{width:52,height:52,borderRadius:14,background:T.accm,border:`1px solid ${T.accb}`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px',fontSize:24}}>📅</div>
       <p style={{fontSize:14,fontWeight:600,color:T.t1,marginBottom:6,fontFamily:'var(--font-sans)'}}>{hasQuery?'Aucun résultat':'Aucun événement'}</p>
-      <p style={{fontSize:13,color:T.t3,maxWidth:300,margin:'0 auto 20px',lineHeight:1.7}}>{hasQuery?'Modifiez vos filtres ou votre recherche.':'Créez votre premier événement interne ou externe.'}</p>
+      <p style={{fontSize:13,color:T.t3,maxWidth:300,margin:'0 auto 20px',lineHeight:1.7}}>
+        {hasQuery?'Modifiez vos filtres ou votre recherche.':'Créez votre premier événement interne ou externe.'}
+      </p>
       {!hasQuery&&<PrimaryBtn onClick={onAction}><Ic.plus/> Créer un événement</PrimaryBtn>}
     </div>
   );
@@ -439,12 +733,24 @@ function CreateEventModal({ open, onClose, onCreate }) {
   return (
     <Modal open={open} onClose={onClose} title="Créer un événement" width={560}>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
-        <div><FormLabel required>Titre</FormLabel><Field value={form.title} onChange={set('title')} placeholder="Nom de l'événement"/></div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-          <div><FormLabel required>Date</FormLabel><Field type="date" value={form.date} onChange={set('date')} style={{colorScheme:'light'}}/></div>
-          <div><FormLabel>Heure</FormLabel><Field type="time" value={form.time} onChange={set('time')} style={{colorScheme:'light'}}/></div>
+        <div>
+          <FormLabel required>Titre</FormLabel>
+          <Field value={form.title} onChange={set('title')} placeholder="Nom de l'événement"/>
         </div>
-        <div><FormLabel>Lieu</FormLabel><Field value={form.location} onChange={set('location')} placeholder="Adresse ou lien de la réunion"/></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div>
+            <FormLabel required>Date</FormLabel>
+            <Field type="date" value={form.date} onChange={set('date')} style={{colorScheme:'light'}}/>
+          </div>
+          <div>
+            <FormLabel>Heure</FormLabel>
+            <Field type="time" value={form.time} onChange={set('time')} style={{colorScheme:'light'}}/>
+          </div>
+        </div>
+        <div>
+          <FormLabel>Lieu</FormLabel>
+          <Field value={form.location} onChange={set('location')} placeholder="Adresse ou lien de la réunion"/>
+        </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
           <div>
             <FormLabel>Type</FormLabel>
@@ -456,9 +762,15 @@ function CreateEventModal({ open, onClose, onCreate }) {
               <option value="workshop">Workshop</option>
             </select>
           </div>
-          <div><FormLabel>Nb. participants</FormLabel><Field type="number" value={form.attendees} onChange={set('attendees')} placeholder="50"/></div>
+          <div>
+            <FormLabel>Nb. participants</FormLabel>
+            <Field type="number" value={form.attendees} onChange={set('attendees')} placeholder="50"/>
+          </div>
         </div>
-        <div><FormLabel>Organisateur</FormLabel><Field value={form.organizer} onChange={set('organizer')} placeholder="Nom de l'organisateur"/></div>
+        <div>
+          <FormLabel>Organisateur</FormLabel>
+          <Field value={form.organizer} onChange={set('organizer')} placeholder="Nom de l'organisateur"/>
+        </div>
         <div>
           <FormLabel>Description</FormLabel>
           <Field as="textarea" value={form.description} onChange={set('description')} placeholder="Décrivez l'événement…" rows={4} style={{resize:'vertical',lineHeight:1.7}}/>
@@ -474,7 +786,6 @@ function CreateEventModal({ open, onClose, onCreate }) {
    ════════════════════════════════════════════════════════════════ */
 export default function EventsPage() {
   useGlobalStyle();
-
   const { addToast } = useNotif();
 
   const [events,      setEvents]      = useState(INITIAL_EVENTS);
@@ -541,7 +852,10 @@ export default function EventsPage() {
       <div className="xm-header-row" style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,marginBottom:24,flexWrap:'wrap'}}>
         <div>
           <h1 style={{fontSize:22,fontWeight:700,color:T.t1,letterSpacing:'-.6px',marginBottom:4,fontFamily:'var(--font-sans)'}}>Événements</h1>
-          <p style={{fontSize:13,color:T.t3,fontFamily:'var(--font-sans)'}}>{events.length} événement{events.length!==1?'s':''} au total{(typeFilter!=='all'||statusFilter!=='all'||query)&&` · ${filtered.length} affiché${filtered.length!==1?'s':''}`}</p>
+          <p style={{fontSize:13,color:T.t3,fontFamily:'var(--font-sans)'}}>
+            {events.length} événement{events.length!==1?'s':''} au total
+            {(typeFilter!=='all'||statusFilter!=='all'||query)&&` · ${filtered.length} affiché${filtered.length!==1?'s':''}`}
+          </p>
         </div>
         <PrimaryBtn onClick={()=>setCreateModal(true)}><Ic.plus/> Créer un événement</PrimaryBtn>
       </div>
@@ -553,14 +867,21 @@ export default function EventsPage() {
       {insights.next&&<NextEventBanner event={insights.next} onClick={()=>{}}/>}
 
       {/* ── Filters ── */}
-      <FiltersBar query={query} setQuery={setQuery} typeFilter={typeFilter} setTypeFilter={setTypeFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} activeCount={filtered.length}/>
+      <FiltersBar
+        query={query} setQuery={setQuery}
+        typeFilter={typeFilter} setTypeFilter={setTypeFilter}
+        statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+        activeCount={filtered.length}
+      />
 
       {/* ── List ── */}
       {filtered.length===0
         ? <EmptyState hasQuery={!!query||typeFilter!=='all'||statusFilter!=='all'} onAction={()=>setCreateModal(true)}/>
-        : <div className="xm-grid-list">
+        : (
+          <div className="xm-grid-list">
             {filtered.map((ev,i)=>(
-              <EventCard key={ev.id} ev={ev} index={i} isNext={ev.id===nextId}
+              <EventCard
+                key={ev.id} ev={ev} index={i} isNext={ev.id===nextId}
                 onDelete={()=>handleDelete(ev.id)}
                 onInvite={()=>handleInvite()}
                 onConfirm={()=>handleConfirm(ev.id)}
@@ -569,6 +890,7 @@ export default function EventsPage() {
               />
             ))}
           </div>
+        )
       }
 
       {/* ── Create Modal ── */}

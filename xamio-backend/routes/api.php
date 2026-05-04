@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\TacheController;
 use App\Http\Controllers\Api\MesActionsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\DocumentController;
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // HEALTH CHECK
@@ -164,5 +166,14 @@ Route::middleware(['auth:sanctum', 'session.inactivity'])->group(function () {
     // ── Actions CR ────────────────────────────────────────────────────────────
     Route::get   ('/mes-actions',             [MesActionsController::class, 'index']);
     Route::patch ('/actions/{action}/statut', [MesActionsController::class, 'updateStatut']);
+
+    // ── Documents ─────────────────────────────────────────────────────────────────
+    Route::prefix('documents')->group(function () {
+        Route::get    ('/',                [DocumentController::class, 'index']);
+        Route::post   ('/',                [DocumentController::class, 'store']);
+        Route::patch  ('/{id}',            [DocumentController::class, 'update']);
+        Route::delete ('/{id}',            [DocumentController::class, 'destroy']);
+        Route::get    ('/{id}/download',   [DocumentController::class, 'download']);
+    });
 
 }); // fin des routes protégées

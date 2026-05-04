@@ -2,105 +2,117 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-export function useMeetingDocuments({
-  addDocument,
-  baseUrl = '',
-  fetchOptions = {},
-}) {
-  const addDocRef = useRef(addDocument);
-  useEffect(() => { addDocRef.current = addDocument; }, [addDocument]);
+export function useMeetingDocuments({ addDocument, baseUrl = '', fetchOptions = {} }) {
+  const addDocRef     = useRef(addDocument);
+  const baseUrlRef    = useRef(baseUrl);
+  const fetchOptRef   = useRef(fetchOptions);
+  const tokenRef      = useRef(localStorage.getItem('xamio_token'));
+  const controllerRef = useRef(null);
+  const [loading, setLoading] = useState(!!tokenRef.current);
 
-  // On lit le token depuis localStorage — c'est là que AuthContext le stocke
-  const [token, setToken] = useState(() => localStorage.getItem('xamio_token'));
+  useEffect(() => { addDocRef.current   = addDocument;  }, [addDocument]);
+  useEffect(() => { baseUrlRef.current  = baseUrl;      }, [baseUrl]);
+  useEffect(() => { fetchOptRef.current = fetchOptions; }, [fetchOptions]);
+
+  const startSync = useRef(() => {
+    if (!tokenRef.current) return;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setLoading(true);
+
+    syncMeetingDocs({
+      addDocument:  (...args) => addDocRef.current(...args),
+      token:        tokenRef.current,
+      baseUrl:      baseUrlRef.current,
+      fetchOptions: { ...fetchOptRef.current, signal: controller.signal },
+    })
+      .catch(err => { if (err.name !== 'AbortError') console.warn('[useMeetingDocuments]', err); })
+      .finally(() => setLoading(false));
+  }).current;
 
   useEffect(() => {
-    const onLogin  = () => setToken(localStorage.getItem('xamio_token'));
-    const onLogout = () => setToken(null);
+    const onLogin  = () => { tokenRef.current = localStorage.getItem('xamio_token'); startSync(); };
+    const onLogout = () => { tokenRef.current = null; controllerRef.current?.abort(); setLoading(false); };
     window.addEventListener('xamio:login',  onLogin);
     window.addEventListener('xamio:logout', onLogout);
     return () => {
       window.removeEventListener('xamio:login',  onLogin);
       window.removeEventListener('xamio:logout', onLogout);
     };
-  }, []);
+  }, [startSync]);
 
   useEffect(() => {
-    if (!token) return;
+    startSync();
+    return () => controllerRef.current?.abort();
+  }, [startSync]);
 
-    const controller = new AbortController();
-    const signal = controller.signal;
-
-    syncMeetingDocs({
-      addDocument: (...args) => addDocRef.current(...args),
-      token,
-      baseUrl,
-      fetchOptions: { ...fetchOptions, signal },
-    }).catch((err) => {
-      if (err.name !== 'AbortError') {
-        console.warn('[useMeetingDocuments]', err);
-      }
-    });
-
-    return () => controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  return { loading };
 }
 
 export async function syncMeetingDocs({ addDocument, token, baseUrl = '', fetchOptions = {} }) {
   const { signal, ...restOptions } = fetchOptions;
-  const base = { credentials: 'include', signal, ...restOptions };
+  const base    = { credentials: 'include', signal, ...restOptions };
   const headers = {
     Accept: 'application/json',
-    'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
     ...(restOptions.headers ?? {}),
   };
 
-  let reunions = [];
   try {
     const res = await fetch(`${baseUrl}/api/reunions`, { ...base, headers });
     if (!res.ok) throw new Error(`GET /api/reunions → ${res.status}`);
-    const body = await res.json();
-    reunions = Array.isArray(body) ? body : (body.data ?? []);
+
+    const body     = await res.json();
+    const reunions = Array.isArray(body) ? body : (body.data ?? []);
+
+    // Si le back inclut compte_rendu → 1 seule requête
+    const hasCR = reunions.some(r => r.compte_rendu !== undefined);
+
+    if (hasCR) {
+      for (const reunion of reunions) {
+        if (!reunion.compte_rendu) continue;
+        addDocument(crToDoc(reunion.compte_rendu, reunion));
+      }
+      return;
+    }
+
+    // Fallback N+1 si la relation n'est pas encore chargée côté back
+    await Promise.allSettled(
+      reunions.map(async (reunion) => {
+        const reunId = reunion.reun_id ?? reunion.id;
+        if (!reunId) return;
+        try {
+          const res2  = await fetch(`${baseUrl}/api/reunions/${reunId}/compte-rendu`, { ...base, headers });
+          if (!res2.ok) return;
+          const body2 = await res2.json();
+          const cr    = body2.data;
+          if (!cr) return;
+          addDocument(crToDoc(cr, reunion));
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.warn(`[useMeetingDocuments] Erreur CR réunion ${reunId} :`, err.message);
+          }
+        }
+      }),
+    );
+
   } catch (err) {
     if (err.name !== 'AbortError') {
       console.warn('[useMeetingDocuments] Impossible de charger les réunions :', err.message);
     }
-    return;
   }
-
-  await Promise.allSettled(
-    reunions.map(async (reunion) => {
-      const reunId = reunion.reun_id ?? reunion.id;
-      if (!reunId) return;
-      try {
-        const res = await fetch(`${baseUrl}/api/reunions/${reunId}/compte-rendu`, {
-          ...base,
-          headers,
-        });
-        if (!res.ok) return;
-        const body = await res.json();
-        const cr = body.data;
-        if (!cr) return;
-        addDocument(crToDoc(cr, reunion));
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.warn(`[useMeetingDocuments] Erreur CR réunion ${reunId} :`, err.message);
-        }
-      }
-    }),
-  );
 }
 
 export function crToDoc(cr, reunion) {
-  const title = reunion?.reun_titre ?? reunion?.title ?? `Réunion #${cr.meeting_id}`;
+  const title = reunion?.reun_titre ?? reunion?.title ?? `Réunion #${reunion?.reun_id}`;
   const date  = reunion?.reun_date  ?? reunion?.date  ?? cr.created_at ?? null;
 
   return {
     id:           `cr-${cr.cr_id}`,
     name:         `CR — ${title}`,
     source:       'meeting',
-    meetingId:    cr.meeting_id,
+    meetingId:    reunion?.reun_id ?? cr.reun_id,
     meetingTitle: title,
     type:         'docx',
     category:     'Comptes-rendus',
